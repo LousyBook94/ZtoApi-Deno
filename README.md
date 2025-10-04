@@ -4,7 +4,7 @@
 ![TypeScript](https://img.shields.io/badge/typescript-5.0+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-> Guys  i need help fixing the output of the server when thinking enabled, plz, and also a new tag mode to seperate the thinking from the final answer into reasoning_content field at the same level as content.
+> ✅ **FIXED!** The output when thinking is enabled has been fixed, and a new "separate" tag mode has been added to separate the thinking from the final answer into a `reasoning_content` field at the same level as `content`. The regex patterns have been updated to properly handle multiline content, and support for the `edit_content` field has been implemented.
 
 ZtoApi is a high-performance OpenAI-compatible API proxy that exposes Z.ai's GLM-4.5 and GLM-4.5V models via a standard OpenAI-style interface. Implemented with Deno's native HTTP API, it supports streaming and non-streaming responses and includes a real-time monitoring dashboard.
 
@@ -12,7 +12,11 @@ ZtoApi is a high-performance OpenAI-compatible API proxy that exposes Z.ai's GLM
 
 - OpenAI API compatible — use existing OpenAI clients without changes
 - SSE streaming support for real-time token delivery
-- Transforms and presents model "thinking" content
+- **Advanced thinking content processing** with 4 different modes:
+  - `"strip"` - Remove thinking tags, show only clean content
+  - `"think"` - Convert `<details>` to `<thinking>` tags
+  - `"raw"` - Keep original `<details>` tags as-is
+  - `"separate"` - Extract thinking into separate `reasoning_content` field
 - Built-in web Dashboard with live request stats
 - API key authentication and optional anonymous token fallback
 - Configurable via environment variables
@@ -185,6 +189,71 @@ All feature headers accept the following values (case-insensitive):
 - If not specified, the feature uses the model's default capability
 
 Note: Some features are model-dependent. For example, MCP tools are only available on models that support them, and web search requires a valid Z.ai API token.
+
+## Thinking Content Processing
+
+When thinking mode is enabled (`X-Feature-Thinking: true`), the server processes the model's reasoning content according to the configured `THINK_TAGS_MODE` setting in `main.ts`:
+
+### Available Modes
+
+1. **`"strip"` (Default)** - Removes all thinking tags and shows only the clean final answer
+   ```json
+   {
+     "choices": [{
+       "message": {
+         "role": "assistant",
+         "content": "The answer is 8. Here's how I calculated it: 5 + 3 = 8"
+       }
+     }]
+   }
+   ```
+
+2. **`"think"`** - Converts `<details>` tags to `<thinking>` tags for better readability
+   ```json
+   {
+     "choices": [{
+       "message": {
+         "role": "assistant",
+         "content": "<thinking>Let me solve this step by step: 5 + 3...</thinking>\n\nThe answer is 8."
+       }
+     }]
+   }
+   ```
+
+3. **`"raw"`** - Preserves original `<details>` tags as-is
+   ```json
+   {
+     "choices": [{
+       "message": {
+         "role": "assistant",
+         "content": "<details>Let me solve this step by step: 5 + 3...</details>\n\nThe answer is 8."
+       }
+     }]
+   }
+   ```
+
+4. **`"separate"`** - Extracts reasoning into a separate `reasoning_content` field
+   ```json
+   {
+     "choices": [{
+       "message": {
+         "role": "assistant",
+         "content": "The answer is 8.",
+         "reasoning_content": "Let me solve this step by step: 5 + 3 = 8. This is basic addition..."
+       }
+     }]
+   }
+   ```
+
+### Configuration
+
+To change the thinking mode, modify the `THINK_TAGS_MODE` constant in `main.ts`:
+
+```typescript
+const THINK_TAGS_MODE = "separate"; // options: "strip", "think", "raw", "separate"
+```
+
+The `"separate"` mode is particularly useful for applications that want to display reasoning and final answers separately, such as educational tools or debugging interfaces.
 
 ## Examples
 
