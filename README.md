@@ -122,6 +122,7 @@ You can control various model features using HTTP headers when making requests t
 - `X-Feature-Title-Generation` — Enable/disable title generation (true/false)
 - `X-Feature-Tags-Generation` — Enable/disable tags generation (true/false)
 - `X-Feature-MCP` — Enable/disable MCP (Model Context Protocol) tools (true/false)
+- `X-Think-Tags-Mode` — **NEW!** Customize thinking content processing mode per request
 
 ### Usage Examples
 
@@ -163,6 +164,86 @@ curl -X POST http://localhost:9090/v1/chat/completions \
   -d '{"model":"0727-360B-API","messages":[{"role":"user","content":"Research and analyze current AI trends"}],"stream":false}'
 ```
 
+### 🎉 NEW: Dynamic Think Tags Mode
+
+The `X-Think-Tags-Mode` header allows you to customize how thinking content is processed **per request**, giving you complete control over the model's reasoning display format without restarting the server!
+
+#### Available Modes
+
+- `"strip"` - Remove `<details>` tags and show only the final content
+- `"think"` - Convert `<details>` tags to `<thinking>` tags
+- `"raw"` - Keep the content exactly as-is from the upstream
+- `"separate"` - Separate reasoning into `reasoning_content` field (default)
+
+#### Usage Examples
+
+**Strip thinking content for clean responses:**
+```bash
+curl -X POST http://localhost:9090/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-api-key" \
+  -H "X-Feature-Thinking: true" \
+  -H "X-Think-Tags-Mode: strip" \
+  -d '{"model":"0727-360B-API","messages":[{"role":"user","content":"Explain quantum computing"}],"stream":false}'
+```
+
+**Convert to thinking tags for debugging:**
+```bash
+curl -X POST http://localhost:9090/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-api-key" \
+  -H "X-Feature-Thinking: true" \
+  -H "X-Think-Tags-Mode: think" \
+  -d '{"model":"0727-360B-API","messages":[{"role":"user","content":"Debug this code"}],"stream":true}'
+```
+
+**Get raw content for advanced processing:**
+```bash
+curl -X POST http://localhost:9090/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-api-key" \
+  -H "X-Feature-Thinking: true" \
+  -H "X-Think-Tags-Mode: raw" \
+  -d '{"model":"0727-360B-API","messages":[{"role":"user","content":"Analyze this complex problem"}]}'
+```
+
+**Separate reasoning for structured data:**
+```bash
+curl -X POST http://localhost:9090/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-api-key" \
+  -H "X-Feature-Thinking: true" \
+  -H "X-Think-Tags-Mode: separate" \
+  -d '{"model":"0727-360B-API","messages":[{"role":"user","content":"Solve step by step"}]}'
+```
+
+**Python example with dynamic thinking mode:**
+```python
+from openai import OpenAI
+
+client = OpenAI(api_key="your-api-key", base_url="http://localhost:9090/v1")
+
+response = client.chat.completions.create(
+    model="0727-360B-API",
+    messages=[{"role": "user", "content": "Explain black holes"}],
+    extra_headers={
+        "X-Feature-Thinking": "true",
+        "X-Think-Tags-Mode": "separate"  # Get reasoning and content separately!
+    }
+)
+
+print("Content:", response.choices[0].message.content)
+print("Reasoning:", response.choices[0].message.reasoning_content)
+```
+
+#### Benefits
+
+- **🔄 Per-Request Control**: Switch between modes without server restart
+- **🎯 Use-Case Specific**: Choose the perfect format for your application
+- **🐛 Debugging Friendly**: Use "think" or "raw" modes to see the model's reasoning
+- **🧹 Clean Output**: Use "strip" mode for production-ready responses
+- **📊 Structured Data**: Use "separate" mode for educational tools or analytics
+
 Python example with headers:
 ```python
 from openai import OpenAI
@@ -192,11 +273,31 @@ Note: Some features are model-dependent. For example, MCP tools are only availab
 
 ## Thinking Content Processing
 
-When thinking mode is enabled (`X-Feature-Thinking: true`), the server processes the model's reasoning content according to the configured `THINK_TAGS_MODE` setting in `main.ts`:
+When thinking mode is enabled (`X-Feature-Thinking: true`), the server processes the model's reasoning content according to the specified mode. You have **two ways** to control this:
+
+### 🎯 Method 1: Per-Request Control (Recommended!)
+
+Use the `X-Think-Tags-Mode` header to customize thinking content processing **per request**:
+
+```bash
+curl -X POST http://localhost:9090/v1/chat/completions \
+  -H "X-Think-Tags-Mode: separate" \
+  # ... other headers and request body
+```
+
+### ⚙️ Method 2: Server Default Configuration
+
+Set the default mode by modifying the `THINK_TAGS_MODE` constant in `main.ts`:
+
+```typescript
+const THINK_TAGS_MODE = "separate"; // options: "strip", "think", "raw", "separate"
+```
+
+**Note**: The `X-Think-Tags-Mode` header always overrides the server default!
 
 ### Available Modes
 
-1. **`"strip"` (Default)** - Removes all thinking tags and shows only the clean final answer
+1. **`"strip"`** - Removes all thinking tags and shows only the clean final answer
    ```json
    {
      "choices": [{
@@ -245,13 +346,12 @@ When thinking mode is enabled (`X-Feature-Thinking: true`), the server processes
    }
    ```
 
-### Configuration
+### Use Case Recommendations
 
-To change the thinking mode, modify the `THINK_TAGS_MODE` constant in `main.ts`:
-
-```typescript
-const THINK_TAGS_MODE = "separate"; // options: "strip", "think", "raw", "separate"
-```
+- **🧹 Production Apps**: Use `"strip"` for clean, user-friendly responses
+- **🐛 Debugging**: Use `"think"` or `"raw"` to see the model's reasoning process
+- **📚 Educational Tools**: Use `"separate"` to display reasoning and answers separately
+- **🔍 Advanced Processing**: Use `"raw"` for custom parsing and analysis
 
 The `"separate"` mode is particularly useful for applications that want to display reasoning and final answers separately, such as educational tools or debugging interfaces.
 

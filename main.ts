@@ -800,11 +800,10 @@ async function callUpstreamWithHeaders(
 }
 
 /**
- * Transform thinking content based on THINK_TAGS_MODE
+ * Transform thinking content based on specified mode
  * Returns either a string (for "strip", "think", "raw" modes) or an object with reasoning and content
  */
-function transformThinking(content: string): string | { reasoning: string; content: string } {
-  const mode = THINK_TAGS_MODE as "strip" | "think" | "raw" | "separate";
+function transformThinking(content: string, mode: "strip" | "think" | "raw" | "separate" = THINK_TAGS_MODE as "strip" | "think" | "raw" | "separate"): string | { reasoning: string; content: string } {
 
   // Raw mode: return as-is
   if (mode === "raw") {
@@ -923,7 +922,8 @@ async function processUpstreamStream(
   body: ReadableStream<Uint8Array>,
   writer: WritableStreamDefaultWriter<Uint8Array>,
   encoder: TextEncoder,
-  modelName: string
+  modelName: string,
+  thinkTagsMode: "strip" | "think" | "raw" | "separate" = THINK_TAGS_MODE as "strip" | "think" | "raw" | "separate"
 ): Promise<Usage | null> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
@@ -1009,8 +1009,8 @@ async function processUpstreamStream(
               debugLog("Received edit_content with complete thinking block, length: %d", upstreamData.data.edit_content.length);
               debugLog("Current mode: %s, thinkingSent: %s", THINK_TAGS_MODE, thinkingSent);
 
-              if (THINK_TAGS_MODE === "separate") {
-                const transformed = transformThinking(upstreamData.data.edit_content);
+              if (thinkTagsMode === "separate") {
+                const transformed = transformThinking(upstreamData.data.edit_content, thinkTagsMode);
                 if (typeof transformed === "object" && transformed.reasoning) {
                   debugLog("Sending reasoning from edit_content, length: %d", transformed.reasoning.length);
 
@@ -1035,7 +1035,7 @@ async function processUpstreamStream(
                 // For other modes, process the complete thinking block from edit_content
                 debugLog("Processing complete thinking block from edit_content for mode: %s", THINK_TAGS_MODE);
 
-                const transformed = transformThinking(upstreamData.data.edit_content);
+                const transformed = transformThinking(upstreamData.data.edit_content, thinkTagsMode);
                 const processedContent = typeof transformed === "string" ? transformed : transformed.content;
 
                 if (processedContent && processedContent.trim() !== "") {
@@ -1067,14 +1067,14 @@ async function processUpstreamStream(
               const rawContent = upstreamData.data.delta_content;
               const isThinking = upstreamData.data.phase === "thinking";
 
-              if (THINK_TAGS_MODE === "separate") {
+              if (thinkTagsMode === "separate") {
                 // In separate mode, accumulate thinking content
                 if (isThinking) {
                   accumulatedThinking += rawContent;
 
                   // Check if thinking block is complete (contains closing </details>)
                   if (accumulatedThinking.includes("</details>") && !thinkingSent) {
-                    const transformed = transformThinking(accumulatedThinking);
+                    const transformed = transformThinking(accumulatedThinking, thinkTagsMode);
                     if (typeof transformed === "object" && transformed.reasoning) {
                       debugLog("Sending accumulated reasoning content, length: %d", transformed.reasoning.length);
 
@@ -1126,7 +1126,7 @@ async function processUpstreamStream(
                     debugLog("Processing complete thinking block, length: %d", accumulatedThinking.length);
                     debugLog("Thinking content preview: %s", accumulatedThinking.substring(0, 200));
 
-                    const transformed = transformThinking(accumulatedThinking);
+                    const transformed = transformThinking(accumulatedThinking, thinkTagsMode);
                     const processedContent = typeof transformed === "string" ? transformed : transformed.content;
 
                     if (processedContent && processedContent.trim() !== "") {
@@ -1215,7 +1215,10 @@ async function processUpstreamStream(
 }
 
 // Collect full response for non-streaming mode
-async function collectFullResponse(body: ReadableStream<Uint8Array>): Promise<{content: string, reasoning_content?: string, usage: Usage | null}> {
+async function collectFullResponse(
+  body: ReadableStream<Uint8Array>,
+  thinkTagsMode: "strip" | "think" | "raw" | "separate" = THINK_TAGS_MODE as "strip" | "think" | "raw" | "separate"
+): Promise<{content: string, reasoning_content?: string, usage: Usage | null}> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
@@ -1252,10 +1255,10 @@ async function collectFullResponse(body: ReadableStream<Uint8Array>): Promise<{c
             if (upstreamData.data.edit_content) {
               debugLog("Received edit_content in non-streaming, length: %d", upstreamData.data.edit_content.length);
 
-              if (THINK_TAGS_MODE === "separate") {
+              if (thinkTagsMode === "separate") {
                 // For separate mode, extract reasoning and content separately
                 if (!fullReasoning) {
-                  const transformed = transformThinking(upstreamData.data.edit_content);
+                  const transformed = transformThinking(upstreamData.data.edit_content, thinkTagsMode);
                   if (typeof transformed === "object") {
                     fullReasoning = transformed.reasoning;
                     debugLog("Extracted reasoning from edit_content, length: %d", fullReasoning.length);
@@ -1269,7 +1272,7 @@ async function collectFullResponse(body: ReadableStream<Uint8Array>): Promise<{c
                 }
               } else {
                 // For other modes, process the thinking content and add to fullContent
-                const transformed = transformThinking(upstreamData.data.edit_content);
+                const transformed = transformThinking(upstreamData.data.edit_content, thinkTagsMode);
                 const processedContent = typeof transformed === "string" ? transformed : transformed.content;
 
                 if (processedContent && processedContent.trim() !== "") {
@@ -1283,7 +1286,7 @@ async function collectFullResponse(body: ReadableStream<Uint8Array>): Promise<{c
               const rawContent = upstreamData.data.delta_content;
               const isThinking = upstreamData.data.phase === "thinking";
 
-              if (THINK_TAGS_MODE === "separate") {
+              if (thinkTagsMode === "separate") {
                 if (isThinking) {
                   accumulatedThinking += rawContent;
                 } else {
@@ -1303,8 +1306,8 @@ async function collectFullResponse(body: ReadableStream<Uint8Array>): Promise<{c
 
 
               // Process accumulated thinking if in separate mode (only if not already set from edit_content)
-              if (THINK_TAGS_MODE === "separate" && accumulatedThinking && !fullReasoning) {
-                const transformed = transformThinking(accumulatedThinking);
+              if (thinkTagsMode === "separate" && accumulatedThinking && !fullReasoning) {
+                const transformed = transformThinking(accumulatedThinking, thinkTagsMode);
                 if (typeof transformed === "object") {
                   fullReasoning = transformed.reasoning;
                   debugLog("Set fullReasoning from accumulated thinking, length: %d", fullReasoning.length);
@@ -1331,8 +1334,8 @@ async function collectFullResponse(body: ReadableStream<Uint8Array>): Promise<{c
   }
 
   // Process accumulated thinking if in separate mode
-  if (THINK_TAGS_MODE === "separate" && accumulatedThinking) {
-    const transformed = transformThinking(accumulatedThinking);
+  if (thinkTagsMode === "separate" && accumulatedThinking) {
+    const transformed = transformThinking(accumulatedThinking, thinkTagsMode);
     if (typeof transformed === "object") {
       fullReasoning = transformed.reasoning;
     }
@@ -1437,6 +1440,9 @@ async function handleChatCompletions(request: Request): Promise<Response> {
   const titleGenerationHeader = request.headers.get("X-Feature-Title-Generation");
   const tagsGenerationHeader = request.headers.get("X-Feature-Tags-Generation");
   const mcpHeader = request.headers.get("X-Feature-MCP");
+  
+  // Read think tags mode customization header
+  const thinkTagsModeHeader = request.headers.get("X-Think-Tags-Mode");
 
   // Parse header values to boolean (default to model capabilities if not specified)
   const parseFeatureHeader = (headerValue: string | null, defaultValue: boolean): boolean => {
@@ -1445,8 +1451,26 @@ async function handleChatCompletions(request: Request): Promise<Response> {
     return lowerValue === "true" || lowerValue === "1" || lowerValue === "yes";
   };
 
+  // Parse think tags mode header with validation
+  const parseThinkTagsMode = (headerValue: string | null): "strip" | "think" | "raw" | "separate" => {
+    if (headerValue === null) return THINK_TAGS_MODE as "strip" | "think" | "raw" | "separate";
+    
+    const validModes = ["strip", "think", "raw", "separate"];
+    const normalizedValue = headerValue.toLowerCase().trim();
+    
+    if (validModes.includes(normalizedValue)) {
+      return normalizedValue as "strip" | "think" | "raw" | "separate";
+    }
+    
+    debugLog("⚠️ Invalid X-Think-Tags-Mode value: %s. Using default: %s", headerValue, THINK_TAGS_MODE);
+    return THINK_TAGS_MODE as "strip" | "think" | "raw" | "separate";
+  };
+
+  const currentThinkTagsMode = parseThinkTagsMode(thinkTagsModeHeader);
+
   debugLog("Feature headers received: Thinking=%s, WebSearch=%s, AutoWebSearch=%s, ImageGen=%s, TitleGen=%s, TagsGen=%s, MCP=%s",
     thinkingHeader, webSearchHeader, autoWebSearchHeader, imageGenerationHeader, titleGenerationHeader, tagsGenerationHeader, mcpHeader);
+  debugLog("🎯 Think tags mode: %s (header: %s, default: %s)", currentThinkTagsMode, thinkTagsModeHeader || "not provided", THINK_TAGS_MODE);
 
   const headers = new Headers();
   setCORSHeaders(headers);
@@ -1672,9 +1696,9 @@ async function handleChatCompletions(request: Request): Promise<Response> {
   // Call upstream
   try {
     if (req.stream) {
-      return await handleStreamResponse(upstreamReq, chatID, authToken, startTime, path, userAgent, req, modelConfig);
+      return await handleStreamResponse(upstreamReq, chatID, authToken, startTime, path, userAgent, req, modelConfig, currentThinkTagsMode);
     } else {
-      return await handleNonStreamResponse(upstreamReq, chatID, authToken, startTime, path, userAgent, req, modelConfig);
+      return await handleNonStreamResponse(upstreamReq, chatID, authToken, startTime, path, userAgent, req, modelConfig, currentThinkTagsMode);
     }
   } catch (error) {
     debugLog("Upstream call failed: %v", error);
@@ -1696,7 +1720,8 @@ async function handleStreamResponse(
   path: string,
   userAgent: string,
   req: OpenAIRequest,
-  modelConfig: ModelConfig
+  modelConfig: ModelConfig,
+  thinkTagsMode: "strip" | "think" | "raw" | "separate"
 ): Promise<Response> {
   debugLog("Starting to handle stream response (chat_id=%s)", chatID);
 
@@ -1740,7 +1765,7 @@ async function handleStreamResponse(
     writer.write(encoder.encode(`data: ${JSON.stringify(firstChunk)}\n\n`));
 
     // Process upstream SSE stream asynchronously
-    processUpstreamStream(response.body, writer, encoder, req.model).then(usage => {
+    processUpstreamStream(response.body, writer, encoder, req.model, thinkTagsMode).then(usage => {
       if (usage) {
         debugLog("Stream completed with usage: prompt=%d, completion=%d, total=%d",
           usage.prompt_tokens, usage.completion_tokens, usage.total_tokens);
@@ -1783,7 +1808,8 @@ async function handleNonStreamResponse(
   path: string,
   userAgent: string,
   req: OpenAIRequest,
-  modelConfig: ModelConfig
+  modelConfig: ModelConfig,
+  thinkTagsMode: "strip" | "think" | "raw" | "separate"
 ): Promise<Response> {
   debugLog("Starting to handle non-stream response (chat_id=%s)", chatID);
 
@@ -1806,7 +1832,7 @@ async function handleNonStreamResponse(
       return new Response("Upstream response body is empty", { status: 502 });
     }
 
-    const { content: finalContent, reasoning_content: reasoningContent, usage: finalUsage } = await collectFullResponse(response.body);
+    const { content: finalContent, reasoning_content: reasoningContent, usage: finalUsage } = await collectFullResponse(response.body, thinkTagsMode);
     debugLog("Content collection completed, final length: %d", finalContent.length);
     debugLog("Reasoning content status: %s", reasoningContent ? `present (${reasoningContent.length} chars)` : "not present");
 
