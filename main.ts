@@ -514,6 +514,23 @@ let liveRequests: LiveRequest[] = [];
  * Utility functions
  */
 
+/**
+ * Generate SHA-256 hash of the given data
+ * Used for X-Signature header generation
+ */
+async function generateSHA256Hash(data: string): Promise<string> {
+  try {
+    const encoder = new TextEncoder();
+    const dataBuffer = encoder.encode(data);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (error) {
+    debugLog("Failed to generate SHA-256 hash: %v", error);
+    throw new Error(`SHA-256 hash generation failed: ${error}`);
+  }
+}
+
 function debugLog(format: string, ...args: unknown[]): void {
   if (DEBUG_MODE) {
     console.log(`[DEBUG] ${format}`, ...args);
@@ -780,21 +797,39 @@ async function callUpstreamWithHeaders(
 
     debugLog("Upstream request body: %s", JSON.stringify(upstreamReq));
 
+    // Generate X-Signature header (SHA-256 hash of request body)
+    let signature: string;
+    try {
+      const requestBody = JSON.stringify(upstreamReq);
+      signature = await generateSHA256Hash(requestBody);
+      debugLog("Generated X-Signature: %s", signature);
+    } catch (error) {
+      debugLog("Failed to generate X-Signature, proceeding without it: %v", error);
+      signature = "";
+    }
+
+    const headers = new Headers({
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "User-Agent": BROWSER_UA,
+      "Authorization": `Bearer ${authToken}`,
+      "Accept-Language": "en-US",
+      "sec-ch-ua": SEC_CH_UA,
+      "sec-ch-ua-mobile": SEC_CH_UA_MOB,
+      "sec-ch-ua-platform": SEC_CH_UA_PLAT,
+      "X-FE-Version": X_FE_VERSION,
+      "Origin": ORIGIN_BASE,
+      "Referer": `${ORIGIN_BASE}/c/${refererChatID}`
+    });
+
+    // Add X-Signature header if successfully generated
+    if (signature) {
+      headers.set("X-Signature", signature);
+    }
+
     const response = await fetch(UPSTREAM_URL, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json, text/event-stream",
-        "User-Agent": BROWSER_UA,
-        "Authorization": `Bearer ${authToken}`,
-        "Accept-Language": "en-US",
-        "sec-ch-ua": SEC_CH_UA,
-        "sec-ch-ua-mobile": SEC_CH_UA_MOB,
-        "sec-ch-ua-platform": SEC_CH_UA_PLAT,
-        "X-FE-Version": X_FE_VERSION,
-        "Origin": ORIGIN_BASE,
-        "Referer": `${ORIGIN_BASE}/c/${refererChatID}`
-      },
+      headers,
       body: JSON.stringify(upstreamReq)
     });
 
