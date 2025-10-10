@@ -21,6 +21,7 @@
  */
 
 import { decodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts";
+import { handleAnthropicCompletions } from "./anthropic.ts";
 
 declare global {
   interface ImportMeta {
@@ -2093,6 +2094,11 @@ async function handleHttp(conn: Deno.Conn) {
         const response = await handleChatCompletions(request);
         await respondWith(response);
         // stats recorded inside handleChatCompletions
+      } else if (url.pathname.startsWith("/anthropic/v1/")) {
+        const response = await handleAnthropicCompletions(request);
+        await respondWith(response);
+        recordRequestStats(startTime, url.pathname, response.status);
+        addLiveRequest(request.method, url.pathname, response.status, Date.now() - startTime, userAgent);
       } else if (url.pathname === "/docs") {
         const response = await handleDocs(request);
         await respondWith(response);
@@ -2155,6 +2161,11 @@ async function handleRequest(request: Request): Promise<Response> {
     } else if (url.pathname === "/v1/chat/completions") {
       const response = await handleChatCompletions(request);
       // stats recorded inside handleChatCompletions
+      return response;
+    } else if (url.pathname.startsWith("/anthropic/v1/")) {
+      const response = await handleAnthropicCompletions(request);
+      recordRequestStats(startTime, url.pathname, response.status);
+      addLiveRequest(request.method, url.pathname, response.status, Date.now() - startTime, userAgent);
       return response;
     } else if (url.pathname === "/docs") {
       const response = await handleDocs(request);
