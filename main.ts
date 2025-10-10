@@ -21,6 +21,7 @@
  */
 
 import { decodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts";
+import { handleAnthropicMessages, handleAnthropicModels, handleAnthropicTextCompletions } from "./anthropic.ts";
 
 declare global {
   interface ImportMeta {
@@ -2026,168 +2027,96 @@ function getContentType(path: string): string {
   }
 }
 
-// Main HTTP server entrypoint
-async function main() {
-console.log(`OpenAI-compatible API server starting`);
-console.log(`Supported models: ${SUPPORTED_MODELS.map(m => `${m.id} (${m.name})`).join(', ')}`);
-console.log(`Upstream: ${UPSTREAM_URL}`);
-console.log(`Debug mode: ${DEBUG_MODE}`);
-console.log(`Default streaming: ${DEFAULT_STREAM}`);
-console.log(`Dashboard enabled: ${DASHBOARD_ENABLED}`);
-
-// Detect if running on Deno Deploy
-const isDenoDeploy = Deno.env.get("DENO_DEPLOYMENT_ID") !== undefined;
-
-if (isDenoDeploy) {
-  console.log("Running on Deno Deploy");
-  Deno.serve(handleRequest);
-} else {
-  const port = parseInt(Deno.env.get("PORT") || "9090");
-  console.log(`Running locally on port: ${port}`);
-
-  if (DASHBOARD_ENABLED) {
-    console.log(`Dashboard enabled at: http://localhost:${port}/dashboard`);
-  }
-
-  const server = Deno.listen({ port });
-
-  for await (const conn of server) {
-    handleHttp(conn);
-  }
-}
-}
-
-// Handle HTTP connection (self-hosted/local)
-async function handleHttp(conn: Deno.Conn) {
-  // Note: Deno.serveHttp is deprecated but still works for now
-  // Future migration to Deno 2 will require refactoring this entire section
-  const httpConn = Deno.serveHttp(conn);
-
-  while (true) {
-    const requestEvent = await httpConn.nextRequest();
-    if (!requestEvent) break;
-
-    const { request, respondWith } = requestEvent;
+async function routeAndLogRequest(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const startTime = Date.now();
     const userAgent = request.headers.get("User-Agent") || "";
 
     try {
-      // Routing
-      if (url.pathname === "/") {
-        const response = await handleIndex(request);
-        await respondWith(response);
+        let response: Response;
+        if (url.pathname === "/") {
+            response = await handleIndex(request);
+        } else if (url.pathname.startsWith("/ui/")) {
+            response = await handleStatic(request);
+        } else if (url.pathname === "/v1/models") {
+            response = await handleModels(request);
+        } else if (url.pathname === "/v1/chat/completions") {
+            return await handleChatCompletions(request); // Stats are recorded inside
+        } else if (url.pathname === "/anthropic/v1/messages") {
+            response = await handleAnthropicMessages(request);
+        } else if (url.pathname === "/anthropic/v1/models") {
+            response = await handleAnthropicModels(request);
+        } else if (url.pathname === "/anthropic/v1/text-completions") {
+            response = await handleAnthropicTextCompletions(request);
+        } else if (url.pathname === "/docs") {
+            response = await handleDocs(request);
+        } else if (url.pathname === "/dashboard" && DASHBOARD_ENABLED) {
+            response = await handleDashboard(request);
+        } else if (url.pathname === "/dashboard/stats" && DASHBOARD_ENABLED) {
+            response = await handleDashboardStats(request);
+        } else if (url.pathname === "/dashboard/requests" && DASHBOARD_ENABLED) {
+            response = await handleDashboardRequests(request);
+        } else {
+            response = await handleOptions(request);
+        }
+
         recordRequestStats(startTime, url.pathname, response.status);
         addLiveRequest(request.method, url.pathname, response.status, Date.now() - startTime, userAgent);
-      } else if (url.pathname.startsWith("/ui/")) {
-        const response = await handleStatic(request);
-        await respondWith(response);
-        recordRequestStats(startTime, url.pathname, response.status);
-        addLiveRequest(request.method, url.pathname, response.status, Date.now() - startTime, userAgent);
-      } else if (url.pathname === "/v1/models") {
-        const response = await handleModels(request);
-        await respondWith(response);
-        recordRequestStats(startTime, url.pathname, response.status);
-        addLiveRequest(request.method, url.pathname, response.status, Date.now() - startTime, userAgent);
-      } else if (url.pathname === "/v1/chat/completions") {
-        const response = await handleChatCompletions(request);
-        await respondWith(response);
-        // stats recorded inside handleChatCompletions
-      } else if (url.pathname === "/docs") {
-        const response = await handleDocs(request);
-        await respondWith(response);
-        recordRequestStats(startTime, url.pathname, response.status);
-        addLiveRequest(request.method, url.pathname, response.status, Date.now() - startTime, userAgent);
-      } else if (url.pathname === "/dashboard" && DASHBOARD_ENABLED) {
-        const response = await handleDashboard(request);
-        await respondWith(response);
-        recordRequestStats(startTime, url.pathname, response.status);
-        addLiveRequest(request.method, url.pathname, response.status, Date.now() - startTime, userAgent);
-      } else if (url.pathname === "/dashboard/stats" && DASHBOARD_ENABLED) {
-        const response = await handleDashboardStats(request);
-        await respondWith(response);
-        recordRequestStats(startTime, url.pathname, response.status);
-        addLiveRequest(request.method, url.pathname, response.status, Date.now() - startTime, userAgent);
-      } else if (url.pathname === "/dashboard/requests" && DASHBOARD_ENABLED) {
-        const response = await handleDashboardRequests(request);
-        await respondWith(response);
-        recordRequestStats(startTime, url.pathname, response.status);
-        addLiveRequest(request.method, url.pathname, response.status, Date.now() - startTime, userAgent);
-      } else {
-        const response = await handleOptions(request);
-        await respondWith(response);
-        recordRequestStats(startTime, url.pathname, response.status);
-        addLiveRequest(request.method, url.pathname, response.status, Date.now() - startTime, userAgent);
-      }
+        return response;
+
     } catch (error) {
-      debugLog("Error handling request: %v", error);
-      const response = new Response("Internal Server Error", { status: 500 });
-      await respondWith(response);
-      recordRequestStats(startTime, url.pathname, 500);
-      addLiveRequest(request.method, url.pathname, 500, Date.now() - startTime, userAgent);
+        debugLog("Error handling request: %v", error);
+        const response = new Response("Internal Server Error", { status: 500 });
+        recordRequestStats(startTime, url.pathname, 500);
+        addLiveRequest(request.method, url.pathname, 500, Date.now() - startTime, userAgent);
+        return response;
     }
+}
+
+// Main HTTP server entrypoint
+async function main() {
+    console.log(`OpenAI-compatible API server starting`);
+    console.log(`Supported models: ${SUPPORTED_MODELS.map(m => `${m.id} (${m.name})`).join(', ')}`);
+    console.log(`Upstream: ${UPSTREAM_URL}`);
+    console.log(`Debug mode: ${DEBUG_MODE}`);
+    console.log(`Default streaming: ${DEFAULT_STREAM}`);
+    console.log(`Dashboard enabled: ${DASHBOARD_ENABLED}`);
+
+    // Detect if running on Deno Deploy
+    const isDenoDeploy = Deno.env.get("DENO_DEPLOYMENT_ID") !== undefined;
+
+    if (isDenoDeploy) {
+        console.log("Running on Deno Deploy");
+        Deno.serve(handleRequest);
+    } else {
+        const port = parseInt(Deno.env.get("PORT") || "9090");
+        console.log(`Running locally on port: ${port}`);
+
+        if (DASHBOARD_ENABLED) {
+            console.log(`Dashboard enabled at: http://localhost:${port}/dashboard`);
+        }
+
+        const server = Deno.listen({ port });
+
+        for await (const conn of server) {
+            handleHttp(conn);
+        }
+    }
+}
+
+// Handle HTTP connection (self-hosted/local)
+async function handleHttp(conn: Deno.Conn) {
+  const httpConn = Deno.serveHttp(conn);
+  for await (const requestEvent of httpConn) {
+    const { request, respondWith } = requestEvent;
+    const response = await routeAndLogRequest(request);
+    await respondWith(response);
   }
 }
 
 // Handle HTTP requests (Deno Deploy)
 async function handleRequest(request: Request): Promise<Response> {
-  const url = new URL(request.url);
-  const startTime = Date.now();
-  const userAgent = request.headers.get("User-Agent") || "";
-
-  try {
-    // Routing
-    if (url.pathname === "/") {
-      const response = await handleIndex(request);
-      recordRequestStats(startTime, url.pathname, response.status);
-      addLiveRequest(request.method, url.pathname, response.status, Date.now() - startTime, userAgent);
-      return response;
-    } else if (url.pathname.startsWith("/ui/")) {
-      const response = await handleStatic(request);
-      recordRequestStats(startTime, url.pathname, response.status);
-      addLiveRequest(request.method, url.pathname, response.status, Date.now() - startTime, userAgent);
-      return response;
-    } else if (url.pathname === "/v1/models") {
-      const response = await handleModels(request);
-      recordRequestStats(startTime, url.pathname, response.status);
-      addLiveRequest(request.method, url.pathname, response.status, Date.now() - startTime, userAgent);
-      return response;
-    } else if (url.pathname === "/v1/chat/completions") {
-      const response = await handleChatCompletions(request);
-      // stats recorded inside handleChatCompletions
-      return response;
-    } else if (url.pathname === "/docs") {
-      const response = await handleDocs(request);
-      recordRequestStats(startTime, url.pathname, response.status);
-      addLiveRequest(request.method, url.pathname, response.status, Date.now() - startTime, userAgent);
-      return response;
-    } else if (url.pathname === "/dashboard" && DASHBOARD_ENABLED) {
-      const response = await handleDashboard(request);
-      recordRequestStats(startTime, url.pathname, response.status);
-      addLiveRequest(request.method, url.pathname, response.status, Date.now() - startTime, userAgent);
-      return response;
-    } else if (url.pathname === "/dashboard/stats" && DASHBOARD_ENABLED) {
-      const response = await handleDashboardStats(request);
-      recordRequestStats(startTime, url.pathname, response.status);
-      addLiveRequest(request.method, url.pathname, response.status, Date.now() - startTime, userAgent);
-      return response;
-    } else if (url.pathname === "/dashboard/requests" && DASHBOARD_ENABLED) {
-      const response = await handleDashboardRequests(request);
-      recordRequestStats(startTime, url.pathname, response.status);
-      addLiveRequest(request.method, url.pathname, response.status, Date.now() - startTime, userAgent);
-      return response;
-    } else {
-      const response = await handleOptions(request);
-      recordRequestStats(startTime, url.pathname, response.status);
-      addLiveRequest(request.method, url.pathname, response.status, Date.now() - startTime, userAgent);
-      return response;
-    }
-  } catch (error) {
-    debugLog("Error handling request: %v", error);
-    recordRequestStats(startTime, url.pathname, 500);
-    addLiveRequest(request.method, url.pathname, 500, Date.now() - startTime, userAgent);
-    return new Response("Internal Server Error", { status: 500 });
-  }
+  return await routeAndLogRequest(request);
 }
 
 // Start server
