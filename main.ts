@@ -1574,30 +1574,8 @@ async function callUpstreamWithHeaders(
     }
 
     throw error;
-  }
+   }
 }
-    } catch (e) {
-      debugLog("Failed to parse JWT: %v", e);
-    }
-
-    // 2. Prepare signature parameters
-    const timestamp = Date.now();
-    const requestId = crypto.randomUUID();
-    const userMessage = upstreamReq.messages.filter(m => m.role === 'user').pop()?.content;
-    const lastMessageContent = typeof userMessage === 'string' ? userMessage :
-      (Array.isArray(userMessage) ? userMessage.find(c => c.type === 'text')?.text || "" : "");
-
-    if (!lastMessageContent) {
-      throw new Error("Cannot get user message content for signature");
-    }
-
-    const e = `requestId,${requestId},timestamp,${timestamp},user_id,${userId}`;
-
-    // 3. Generate new signature
-    const { signature } = await generateSignature(e, lastMessageContent, timestamp);
-    debugLog("Generated new signature: %s", signature);
-
-    const reqBody = JSON.stringify(upstreamReq);
     debugLog("Upstream request body: %s", reqBody);
 
     // 4. Build URL with new parameters and headers
