@@ -579,6 +579,10 @@ const ZAI_TOKEN = Deno.env.get("ZAI_TOKEN") || "";
  * Token 池管理系统
  * 支持多个 Token 轮换使用，自动切换失败的 Token
  */
+const DEBUG_MODE = Deno.env.get("DEBUG_MODE") !== "false"; // default true
+const DEFAULT_STREAM = Deno.env.get("DEFAULT_STREAM") !== "false"; // default true
+const DASHBOARD_ENABLED = Deno.env.get("DASHBOARD_ENABLED") !== "false"; // default true
+
 interface TokenInfo {
   token: string;
   isValid: boolean;
@@ -1178,15 +1182,11 @@ function processMessages(messages: Message[], modelConfig: ModelConfig): Message
   }
 
   return processedMessages;
-}
+ }
 
-const DEBUG_MODE = Deno.env.get("DEBUG_MODE") !== "false"; // default true
-const DEFAULT_STREAM = Deno.env.get("DEFAULT_STREAM") !== "false"; // default true
-const DASHBOARD_ENABLED = Deno.env.get("DASHBOARD_ENABLED") !== "false"; // default true
-
-/**
- * Global state
- */
+ /**
+  * Global state
+  */
 
 let stats: RequestStats = {
   totalRequests: 0,
