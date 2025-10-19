@@ -248,7 +248,7 @@ interface Model {
 // - "separate": separate reasoning into reasoning_content field
 const THINK_TAGS_MODE = "think"; // options: "strip", "thinking", "think", "raw", "separate"
 
-// MCP 服务器配置
+// MCP Server Configuration
  const MCP_SERVERS: Record<string, MCPServerConfig> = {
    "deep-web-search": {
      name: "Deep Web Search",
@@ -283,12 +283,12 @@ const THINK_TAGS_MODE = "think"; // options: "strip", "thinking", "think", "raw"
  };
 
 /**
- * 高级模式检测器
- */
+  * Advanced Mode Detector
+  */
 class ModelCapabilityDetector {
-  /**
-   * 检测模型的高级能力
-   */
+   /**
+    * Detect model's advanced capabilities
+    */
   static detectCapabilities(modelId: string, reasoning?: boolean): ModelCapabilities {
     const normalizedModelId = modelId.toLowerCase();
 
@@ -334,9 +334,9 @@ class ModelCapabilityDetector {
             this.isAdvancedSearchModel(modelId);
    }
 
-  /**
-   * 获取模型对应的 MCP 服务器列表
-   */
+   /**
+    * Get MCP server list for model
+    */
   static getMCPServersForModel(capabilities: ModelCapabilities): string[] {
     const servers: string[] = [];
 
@@ -355,9 +355,9 @@ class ModelCapabilityDetector {
     return servers;
   }
 
-  /**
-   * 获取隐藏的 MCP 特性列表
-   */
+   /**
+    * Get hidden MCP features list
+    */
   static getHiddenMCPFeatures(): Array<{ type: string; server: string; status: string }> {
     return [
       { type: "mcp", server: "vibe-coding", status: "hidden" },
@@ -369,17 +369,17 @@ class ModelCapabilityDetector {
 }
 
 /**
- * 智能 Header 生成器
- * 动态生成真实的浏览器请求头
- */
+  * Smart Header Generator
+  * Dynamically generate real browser request headers
+  */
 class SmartHeaderGenerator {
   private static cachedHeaders: Record<string, string> | null = null;
   private static cacheExpiry: number = 0;
-  private static readonly CACHE_DURATION = 5 * 60 * 1000; // 5分钟缓存
+   private static readonly CACHE_DURATION = 5 * 60 * 1000; // 5-minute cache
 
-  /**
-   * 生成智能浏览器头部
-   */
+   /**
+    * Generate smart browser headers
+    */
   static async generateHeaders(chatId: string = ""): Promise<Record<string, string>> {
     // 检查缓存
     const now = Date.now();
@@ -453,9 +453,9 @@ class SmartHeaderGenerator {
     };
   }
 
-  /**
-   * 清除缓存
-   */
+   /**
+    * Clear cache
+    */
   static clearCache(): void {
     this.cachedHeaders = null;
     this.cacheExpiry = 0;
@@ -464,12 +464,12 @@ class SmartHeaderGenerator {
 }
 
 /**
- * 浏览器指纹参数生成器
- */
+  * Browser Fingerprint Parameter Generator
+  */
 class BrowserFingerprintGenerator {
-  /**
-   * 生成完整的浏览器指纹参数
-   */
+   /**
+    * Generate complete browser fingerprint parameters
+    */
   static generateFingerprintParams(
     timestamp: number,
     requestId: string,
@@ -496,7 +496,7 @@ class BrowserFingerprintGenerator {
         }
       }
     } catch (e) {
-      debugLog("解析 JWT token 失败: %v", e);
+      debugLog("Failed to parse JWT token: %v", e);
     }
 
     const now = new Date(timestamp);
@@ -576,9 +576,9 @@ const DEFAULT_KEY = Deno.env.get("DEFAULT_KEY") || "sk-your-key";
 const ZAI_TOKEN = Deno.env.get("ZAI_TOKEN") || "";
 
 /**
- * Token 池管理系统
- * 支持多个 Token 轮换使用，自动切换失败的 Token
- */
+  * Token Pool Management System
+  * Supports multiple token rotation, automatically switches failed tokens
+  */
 const DEBUG_MODE = Deno.env.get("DEBUG_MODE") !== "false"; // default true
 const DEFAULT_STREAM = Deno.env.get("DEFAULT_STREAM") !== "false"; // default true
 const DASHBOARD_ENABLED = Deno.env.get("DASHBOARD_ENABLED") !== "false"; // default true
@@ -615,7 +615,7 @@ class TokenPool {
         lastUsed: 0,
         failureCount: 0
       }));
-      debugLog("Token 池已初始化，包含 %d 个 Token", this.tokens.length);
+      debugLog("Token pool initialized, contains %d tokens", this.tokens.length);
     } else if (ZAI_TOKEN) {
       // 兼容单个 Token 配置
       this.tokens = [{
@@ -624,7 +624,7 @@ class TokenPool {
         lastUsed: 0,
         failureCount: 0
       }];
-      debugLog("使用单个 Token 配置");
+      debugLog("Using single token configuration");
     } else {
        debugLog("⚠️ No token configured, will use anonymous token");
     }
@@ -719,7 +719,7 @@ class TokenPool {
        debugLog("Anonymous token obtained and cached");
       return this.anonymousToken;
     } catch (error) {
-      debugLog("获取匿名 Token 失败: %v", error);
+      debugLog("Failed to obtain anonymous token: %v", error);
       throw error;
     }
   }
@@ -752,12 +752,12 @@ class TokenPool {
 const tokenPool = new TokenPool();
 
 /**
- * 图像处理工具类
- */
+  * Image Processing Tool Class
+  */
 class ImageProcessor {
-  /**
-   * 检测消息中是否包含图像内容
-   */
+   /**
+    * Detect if message contains image content
+    */
   static hasImageContent(messages: Message[]): boolean {
     for (const msg of messages) {
       if (msg.role === "user") {
@@ -774,9 +774,9 @@ class ImageProcessor {
     return false;
   }
 
-  /**
-   * 上传图像到 Z.AI 服务器
-   */
+   /**
+    * Upload image to Z.AI server
+    */
   static async uploadImage(imageUrl: string, token: string): Promise<UploadedFile | null> {
     try {
        debugLog("Start uploading image: %s", imageUrl.substring(0, 50) + "...");
@@ -852,9 +852,9 @@ class ImageProcessor {
     }
   }
 
-  /**
-   * 处理消息中的图像内容，返回处理后的消息和上传的文件列表
-   */
+   /**
+    * Process image content in message, return processed message and uploaded file list
+    */
   static async processImages(
     messages: Message[],
     token: string,
@@ -918,9 +918,9 @@ class ImageProcessor {
     };
   }
 
-  /**
-   * 提取最后一条用户消息的文本内容
-   */
+   /**
+    * Extract text content of the last user message
+    */
   static extractLastUserContent(messages: Message[]): string {
     for (let i = messages.length - 1; i >= 0; i--) {
       const msg = messages[i];
@@ -2810,14 +2810,14 @@ async function handleChatCompletions(request: Request): Promise<Response> {
   const modelConfig = getModelConfig(req.model);
   debugLog("Request parsed - model: %s (%s), stream: %v, messages: %d", req.model, modelConfig.name, req.stream, req.messages.length);
 
-  // 检测模型高级能力
+   // Detect model advanced capabilities
   const capabilities = ModelCapabilityDetector.detectCapabilities(
     req.model,
     req.reasoning
   );
-  debugLog("模型能力检测: 思考=%s, 搜索=%s, 高级搜索=%s, 视觉=%s, MCP=%s",
-    capabilities.thinking, capabilities.search, capabilities.advancedSearch,
-    capabilities.vision, capabilities.mcp);
+     debugLog("Model capability detection: thinking=%s, search=%s, advanced search=%s, vision=%s, MCP=%s",
+     capabilities.thinking, capabilities.search, capabilities.advancedSearch,
+     capabilities.vision, capabilities.mcp);
 
   // Cherry Studio debug: inspect each message
   debugLog("🔍 Cherry Studio debug - inspect raw messages:");
@@ -2860,11 +2860,11 @@ async function handleChatCompletions(request: Request): Promise<Response> {
   let uploadedFiles: UploadedFile[] = [];
 
   if (hasMultimodal) {
-    debugLog("🎯 检测到图像内容，开始处理，模型: %s", modelConfig.name);
+     debugLog("🎯 Detected image content, starting processing, model: %s", modelConfig.name);
 
     // 检查匿名 Token 限制
     if (tokenPool.isAnonymousToken(authToken)) {
-      debugLog("❌ 匿名 Token 不支持图像处理功能");
+       debugLog("❌ Anonymous token does not support image processing");
       const duration = Date.now() - startTime;
       recordRequestStats(startTime, path, 400);
       addLiveRequest(request.method, path, 400, duration, userAgent);
@@ -2875,18 +2875,18 @@ async function handleChatCompletions(request: Request): Promise<Response> {
     }
 
     if (!capabilities.vision) {
-      debugLog("❌ 严重错误: 模型不支持多模态，但收到了图像内容！");
-      debugLog(
-        "💡 Cherry Studio用户请检查: 确认选择了 'glm-4.5v' 而不是 'GLM-4.5'"
-      );
-      debugLog(
-        "🔧 模型映射状态: %s → %s (vision: %s)",
-        req.model,
-        modelConfig.upstreamId,
-        capabilities.vision
-      );
+       debugLog("❌ Serious error: Model does not support multimodal, but received image content!");
+       debugLog(
+         "💡 Cherry Studio users please check: Confirm selected 'glm-4.5v' not 'GLM-4.5'"
+       );
+       debugLog(
+         "🔧 Model mapping status: %s → %s (vision: %s)",
+         req.model,
+         modelConfig.upstreamId,
+         capabilities.vision
+       );
     } else {
-      debugLog("✅ 使用高级图像处理器处理图像内容");
+       debugLog("✅ Using advanced image processor to process image content");
 
       try {
         // 使用新的图像处理器
@@ -2899,38 +2899,38 @@ async function handleChatCompletions(request: Request): Promise<Response> {
         finalMessages = imageProcessResult.processedMessages;
         uploadedFiles = imageProcessResult.uploadedFiles;
 
-        debugLog("图像处理完成: 处理后消息数=%d, 上传文件数=%d",
-          finalMessages.length, uploadedFiles.length);
+         debugLog("Image processing completed: processed messages=%d, uploaded files=%d",
+           finalMessages.length, uploadedFiles.length);
 
       } catch (error) {
-        debugLog("图像处理失败: %v", error);
+         debugLog("Image processing failed: %v", error);
         const duration = Date.now() - startTime;
         recordRequestStats(startTime, path, 500);
         addLiveRequest(request.method, path, 500, duration, userAgent);
-        return new Response("图像处理失败", {
+         return new Response("Image processing failed", {
           status: 500,
           headers,
         });
       }
     }
   } else if (capabilities.vision && modelConfig.id === "glm-4.5v") {
-    debugLog("ℹ️ 使用GLM-4.5V模型但未检测到图像数据，仅处理文本内容");
+     debugLog("ℹ️ Using GLM-4.5V model but no image data detected, processing text content only");
   }
 
   // Generate session IDs (prefer client-provided values if present in incoming body)
   const chatID = (typeof incomingBody === "object" && incomingBody?.chat_id) ? String(incomingBody.chat_id) : `${Date.now()}-${Math.floor(Date.now() / 1000)}`;
   const msgID = (typeof incomingBody === "object" && incomingBody?.id) ? String(incomingBody.id) : Date.now().toString();
 
-  // 获取模型对应的 MCP 服务器列表
+   // Get MCP server list for model
   const mcpServers = ModelCapabilityDetector.getMCPServersForModel(capabilities);
   const hiddenMcpFeatures = ModelCapabilityDetector.getHiddenMCPFeatures();
 
-  // 提取用户最后消息内容（用于签名）
+   // Extract last user message content (for signature)
   const lastUserContent = ImageProcessor.extractLastUserContent(req.messages);
 
-  // 构造上游请求（增强版）
+   // Construct upstream request (enhanced)
   const upstreamReq: UpstreamRequest = {
-    stream: true, // 总是使用流式从上游获取
+     stream: true, // Always fetch upstream as stream
     chat_id: chatID,
     id: msgID,
     model: modelConfig.upstreamId,
