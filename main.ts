@@ -1575,43 +1575,7 @@ async function callUpstreamWithHeaders(
 
     throw error;
    }
-}
-    debugLog("Upstream request body: %s", reqBody);
-
-    // 4. Build URL with new parameters and headers
-    const params = new URLSearchParams({
-        timestamp: timestamp.toString(),
-        requestId: requestId,
-        user_id: userId,
-        token: authToken,
-        current_url: `${ORIGIN_BASE}/c/${refererChatID}`,
-        pathname: `/c/${refererChatID}`,
-        signature_timestamp: timestamp.toString()
-    });
-    const fullURL = `${UPSTREAM_URL}?${params.toString()}`;
-
-    const response = await fetch(fullURL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json, text/event-stream",
-        "User-Agent": BROWSER_UA,
-        "Authorization": `Bearer ${authToken}`,
-        "X-FE-Version": X_FE_VERSION,
-        "X-Signature": signature,
-        "Origin": ORIGIN_BASE,
-        "Referer": `${ORIGIN_BASE}/c/${refererChatID}`
-      },
-      body: reqBody
-    });
-
-    debugLog("Upstream response status: %d %s", response.status, response.statusText);
-    return response;
-  } catch (error) {
-    debugLog("Upstream call failed: %v", error);
-    throw error;
-  }
-}
+ }
 
 /**
  * Transform thinking content based on specified mode
