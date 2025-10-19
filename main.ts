@@ -248,6 +248,315 @@ interface Model {
 // - "separate": separate reasoning into reasoning_content field
 const THINK_TAGS_MODE = "think"; // options: "strip", "thinking", "think", "raw", "separate"
 
+// MCP Server Configuration
+ const MCP_SERVERS: Record<string, MCPServerConfig> = {
+   "deep-web-search": {
+     name: "Deep Web Search",
+     description: "Deep Web Search Function",
+     enabled: true,
+   },
+   "advanced-search": {
+     name: "Advanced Search",
+     description: "Advanced Search Function",
+     enabled: true,
+   },
+   "vibe-coding": {
+     name: "Vibe Coding",
+     description: "Programming Assistant Function",
+     enabled: true,
+   },
+   "ppt-maker": {
+     name: "PPT Maker",
+     description: "PPT Generation Function",
+     enabled: true,
+   },
+   "image-search": {
+     name: "Image Search",
+     description: "Image Search Function",
+     enabled: true,
+   },
+   "deep-research": {
+     name: "Deep Research",
+     description: "Deep Research Function",
+     enabled: true,
+   },
+ };
+
+/**
+  * Advanced Mode Detector
+  */
+class ModelCapabilityDetector {
+   /**
+    * Detect model's advanced capabilities
+    */
+  static detectCapabilities(modelId: string, reasoning?: boolean): ModelCapabilities {
+    const normalizedModelId = modelId.toLowerCase();
+
+    return {
+      thinking: this.isThinkingModel(normalizedModelId, reasoning),
+      search: this.isSearchModel(normalizedModelId),
+      advancedSearch: this.isAdvancedSearchModel(normalizedModelId),
+      vision: this.isVisionModel(normalizedModelId),
+      mcp: this.supportsMCP(normalizedModelId),
+    };
+  }
+
+  private static isThinkingModel(modelId: string, reasoning?: boolean): boolean {
+    return modelId.includes("thinking") ||
+           modelId.includes("4.6") ||
+           reasoning === true ||
+           modelId.includes("0727-360b-api");
+  }
+
+  private static isSearchModel(modelId: string): boolean {
+    return modelId.includes("search") ||
+           modelId.includes("web") ||
+           modelId.includes("browser");
+  }
+
+  private static isAdvancedSearchModel(modelId: string): boolean {
+    return modelId.includes("advanced-search") ||
+           modelId.includes("advanced") ||
+           modelId.includes("pro-search");
+  }
+
+  private static isVisionModel(modelId: string): boolean {
+    return modelId.includes("4.5v") ||
+           modelId.includes("vision") ||
+           modelId.includes("image") ||
+           modelId.includes("multimodal");
+  }
+
+   private static supportsMCP(modelId: string): boolean {
+     // Most advanced models support MCP
+     return this.isThinkingModel(modelId) ||
+            this.isSearchModel(modelId) ||
+            this.isAdvancedSearchModel(modelId);
+   }
+
+   /**
+    * Get MCP server list for model
+    */
+  static getMCPServersForModel(capabilities: ModelCapabilities): string[] {
+    const servers: string[] = [];
+
+    if (capabilities.advancedSearch) {
+      servers.push("advanced-search");
+    } else if (capabilities.search) {
+      servers.push("deep-web-search");
+    }
+
+     // Add hidden MCP server features
+     if (capabilities.mcp) {
+       // These servers are added as hidden features to features
+       debugLog("Model supports hidden MCP features: vibe-coding, ppt-maker, image-search, deep-research");
+     }
+
+    return servers;
+  }
+
+   /**
+    * Get hidden MCP features list
+    */
+  static getHiddenMCPFeatures(): Array<{ type: string; server: string; status: string }> {
+    return [
+      { type: "mcp", server: "vibe-coding", status: "hidden" },
+      { type: "mcp", server: "ppt-maker", status: "hidden" },
+      { type: "mcp", server: "image-search", status: "hidden" },
+      { type: "mcp", server: "deep-research", status: "hidden" }
+    ];
+  }
+}
+
+/**
+  * Smart Header Generator
+  * Dynamically generate real browser request headers
+  */
+class SmartHeaderGenerator {
+  private static cachedHeaders: Record<string, string> | null = null;
+  private static cacheExpiry: number = 0;
+   private static readonly CACHE_DURATION = 5 * 60 * 1000; // 5-minute cache
+
+   /**
+    * Generate smart browser headers
+    */
+   static async generateHeaders(chatId: string = ""): Promise<Record<string, string>> {
+     // Check cache
+     const now = Date.now();
+    if (this.cachedHeaders && this.cacheExpiry > now) {
+      const headers = { ...this.cachedHeaders };
+      if (chatId) {
+        headers["Referer"] = `${ORIGIN_BASE}/c/${chatId}`;
+      }
+      return headers;
+     }
+
+     // Generate new headers
+     const headers = await this.generateFreshHeaders();
+    this.cachedHeaders = headers;
+    this.cacheExpiry = now + this.CACHE_DURATION;
+
+     debugLog("Smart Header has been generated and cached");
+     return headers;
+  }
+
+   private static async generateFreshHeaders(): Promise<Record<string, string>> {
+     // Randomly select browser configuration
+     const browserConfigs = [
+      {
+        ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+        secChUa: '"Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"',
+        version: "140.0.0.0"
+      },
+      {
+        ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
+        secChUa: '"Chromium";v="139", "Not=A?Brand";v="24", "Google Chrome";v="139"',
+        version: "139.0.0.0"
+      },
+      {
+        ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0",
+        secChUa: '"Not_A Brand";v="8", "Chromium";v="126", "Firefox";v="126"',
+        version: "126.0"
+      },
+      {
+        ua: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+        secChUa: '"Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"',
+        version: "140.0.0.0"
+      }
+    ];
+
+    const config = browserConfigs[Math.floor(Math.random() * browserConfigs.length)];
+
+     return {
+       // Basic headers
+       "Accept": "*/*",
+      "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+      "Accept-Encoding": "gzip, deflate, br, zstd",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+      "Content-Type": "application/json",
+      "Pragma": "no-cache",
+      "Sec-Fetch-Dest": "empty",
+      "Sec-Fetch-Mode": "cors",
+       "Sec-Fetch-Site": "same-origin",
+ 
+       // Browser-specific headers
+       "User-Agent": config.ua,
+      "Sec-Ch-Ua": config.secChUa,
+      "Sec-Ch-Ua-Mobile": "?0",
+       "Sec-Ch-Ua-Platform": '"Windows"',
+ 
+       // Z.AI specific headers
+       "Origin": ORIGIN_BASE,
+      "Referer": `${ORIGIN_BASE}/`,
+      "X-Fe-Version": X_FE_VERSION,
+    };
+  }
+
+   /**
+    * Clear cache
+    */
+  static clearCache(): void {
+    this.cachedHeaders = null;
+    this.cacheExpiry = 0;
+     debugLog("Header cache cleared");
+  }
+}
+
+/**
+  * Browser Fingerprint Parameter Generator
+  */
+class BrowserFingerprintGenerator {
+   /**
+    * Generate complete browser fingerprint parameters
+    */
+  static generateFingerprintParams(
+    timestamp: number,
+    requestId: string,
+    token: string,
+    chatId: string = ""
+   ): Record<string, string> {
+     // Extract user ID from JWT token (multi-field support, consistent with Python version)
+     let userId = "guest";
+    try {
+      const tokenParts = token.split(".");
+      if (tokenParts.length === 3) {
+         const payload = JSON.parse(atob(tokenParts[1]));
+ 
+         // Try multiple possible user_id fields (consistent with Python version)
+         for (const key of ["id", "user_id", "uid", "sub"]) {
+          const val = payload[key];
+          if (typeof val === "string" || typeof val === "number") {
+            const strVal = String(val);
+            if (strVal.length > 0) {
+              userId = strVal;
+              break;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugLog("Failed to parse JWT token: %v", e);
+    }
+
+    const now = new Date(timestamp);
+    const localTime = now.toISOString().replace('T', ' ').substring(0, 23) + 'Z';
+
+     return {
+       // Basic parameters
+       "timestamp": timestamp.toString(),
+      "requestId": requestId,
+      "user_id": userId,
+      "version": "0.0.1",
+      "platform": "web",
+       "token": token,
+ 
+       // Browser environment parameters
+       "user_agent": BROWSER_UA,
+      "language": "zh-CN",
+      "languages": "zh-CN,zh",
+      "timezone": "Asia/Shanghai",
+       "cookie_enabled": "true",
+ 
+       // Screen parameters
+       "screen_width": "2048",
+      "screen_height": "1152",
+      "screen_resolution": "2048x1152",
+      "viewport_height": "654",
+      "viewport_width": "1038",
+      "viewport_size": "1038x654",
+      "color_depth": "24",
+       "pixel_ratio": "1.25",
+ 
+       // URL parameters
+       "current_url": chatId ? `${ORIGIN_BASE}/c/${chatId}` : ORIGIN_BASE,
+      "pathname": chatId ? `/c/${chatId}` : "/",
+      "search": "",
+      "hash": "",
+      "host": "chat.z.ai",
+      "hostname": "chat.z.ai",
+      "protocol": "https:",
+      "referrer": "",
+       "title": "Z.ai Chat - Free AI powered by GLM-4.6 & GLM-4.5",
+ 
+       // Time parameters
+       "timezone_offset": "-480",
+      "local_time": localTime,
+       "utc_time": now.toUTCString(),
+ 
+       // Device parameters
+       "is_mobile": "false",
+      "is_touch": "false",
+      "max_touch_points": "10",
+      "browser_name": "Chrome",
+       "os_name": "Windows",
+ 
+       // Signature parameters
+       "signature_timestamp": timestamp.toString(),
+    };
+  }
+}
+
 // Spoofed front-end headers (observed from capture)
 // Updated to match capture in example.json
 const X_FE_VERSION = "prod-fe-1.0.95";
@@ -265,6 +574,372 @@ const ANON_TOKEN_ENABLED = true;
 const UPSTREAM_URL = Deno.env.get("UPSTREAM_URL") || "https://chat.z.ai/api/chat/completions";
 const DEFAULT_KEY = Deno.env.get("DEFAULT_KEY") || "sk-your-key";
 const ZAI_TOKEN = Deno.env.get("ZAI_TOKEN") || "";
+
+/**
+  * Token Pool Management System
+  * Supports multiple token rotation, automatically switches failed tokens
+  */
+const DEBUG_MODE = Deno.env.get("DEBUG_MODE") !== "false"; // default true
+const DEFAULT_STREAM = Deno.env.get("DEFAULT_STREAM") !== "false"; // default true
+const DASHBOARD_ENABLED = Deno.env.get("DASHBOARD_ENABLED") !== "false"; // default true
+
+interface TokenInfo {
+  token: string;
+  isValid: boolean;
+  lastUsed: number;
+  failureCount: number;
+  isAnonymous?: boolean;
+}
+
+class TokenPool {
+  private tokens: TokenInfo[] = [];
+  private currentIndex: number = 0;
+  private anonymousToken: string | null = null;
+  private anonymousTokenExpiry: number = 0;
+
+  constructor() {
+    this.initializeTokens();
+  }
+
+   /**
+    * Initialize Token pool
+    */
+   private initializeTokens(): void {
+     // Read multiple tokens from environment variable, separated by commas
+     const tokenEnv = Deno.env.get("ZAI_TOKENS");
+    if (tokenEnv) {
+      const tokenList = tokenEnv.split(",").map(t => t.trim()).filter(t => t.length > 0);
+      this.tokens = tokenList.map(token => ({
+        token,
+        isValid: true,
+        lastUsed: 0,
+        failureCount: 0
+      }));
+      debugLog("Token pool initialized, contains %d tokens", this.tokens.length);
+     } else if (ZAI_TOKEN) {
+       // Compatible with single token configuration
+       this.tokens = [{
+        token: ZAI_TOKEN,
+        isValid: true,
+        lastUsed: 0,
+        failureCount: 0
+      }];
+      debugLog("Using single token configuration");
+    } else {
+       debugLog("⚠️ No token configured, will use anonymous token");
+    }
+  }
+
+   /**
+    * Get next available token
+    */
+   async getToken(): Promise<string> {
+     // If there are configured tokens, try to use them
+     if (this.tokens.length > 0) {
+      const token = this.getNextValidToken();
+      if (token) {
+        token.lastUsed = Date.now();
+        return token.token;
+       }
+     }
+ 
+     // Downgrade to anonymous token
+     return await this.getAnonymousToken();
+  }
+
+   /**
+    * Get next valid configured token
+    */
+  private getNextValidToken(): TokenInfo | null {
+    const startIndex = this.currentIndex;
+
+    do {
+      const tokenInfo = this.tokens[this.currentIndex];
+      if (tokenInfo.isValid && tokenInfo.failureCount < 3) {
+        return tokenInfo;
+      }
+      this.currentIndex = (this.currentIndex + 1) % this.tokens.length;
+     } while (this.currentIndex !== startIndex);
+ 
+     return null; // All tokens are unavailable
+  }
+
+   /**
+    * Switch to next token (called when current token fails)
+    */
+  async switchToNext(): Promise<string | null> {
+     if (this.tokens.length === 0) return null;
+ 
+     // Mark current token as failed
+     const currentToken = this.tokens[this.currentIndex];
+    currentToken.failureCount++;
+    if (currentToken.failureCount >= 3) {
+       currentToken.isValid = false;
+        debugLog("Token marked as invalid: %s", currentToken.token.substring(0, 20));
+     }
+ 
+     // Switch to next
+     this.currentIndex = (this.currentIndex + 1) % this.tokens.length;
+    const nextToken = this.tokens[this.currentIndex];
+
+    if (nextToken && nextToken.isValid) {
+       debugLog("Switch to next token: %s", nextToken.token.substring(0, 20));
+      nextToken.lastUsed = Date.now();
+       return nextToken.token;
+     }
+ 
+     return null; // All configured tokens are unavailable
+  }
+
+   /**
+    * Reset token status (after successful call)
+    */
+  markSuccess(token: string): void {
+    const tokenInfo = this.tokens.find(t => t.token === token);
+    if (tokenInfo) {
+      tokenInfo.failureCount = 0;
+      tokenInfo.isValid = true;
+    }
+  }
+
+   /**
+    * Get anonymous token
+    */
+  private async getAnonymousToken(): Promise<string> {
+     const now = Date.now();
+ 
+     // Check if cache is valid
+     if (this.anonymousToken && this.anonymousTokenExpiry > now) {
+      return this.anonymousToken;
+    }
+
+    try {
+       this.anonymousToken = await getAnonymousToken();
+       this.anonymousTokenExpiry = now + (60 * 60 * 1000); // 1 hour validity period
+        debugLog("Anonymous token obtained and cached");
+      return this.anonymousToken;
+    } catch (error) {
+      debugLog("Failed to obtain anonymous token: %v", error);
+      throw error;
+    }
+  }
+
+   /**
+    * Clear anonymous token cache
+    */
+  clearAnonymousTokenCache(): void {
+    this.anonymousToken = null;
+    this.anonymousTokenExpiry = 0;
+     debugLog("Anonymous token cache cleared");
+  }
+
+   /**
+    * Get token pool size
+    */
+  getPoolSize(): number {
+    return this.tokens.length;
+  }
+
+   /**
+    * Check if it is an anonymous token
+    */
+  isAnonymousToken(token: string): boolean {
+    return this.anonymousToken === token;
+   }
+ }
+ 
+ // Global token pool instance
+ const tokenPool = new TokenPool();
+
+/**
+  * Image Processing Tool Class
+  */
+class ImageProcessor {
+   /**
+    * Detect if message contains image content
+    */
+  static hasImageContent(messages: Message[]): boolean {
+    for (const msg of messages) {
+      if (msg.role === "user") {
+        const content = msg.content;
+        if (Array.isArray(content)) {
+          for (const part of content) {
+            if (part.type === "image_url" && part.image_url?.url) {
+              return true;
+            }
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+   /**
+    * Upload image to Z.AI server
+    */
+  static async uploadImage(imageUrl: string, token: string): Promise<UploadedFile | null> {
+    try {
+        debugLog("Start uploading image: %s", imageUrl.substring(0, 50) + "...");
+ 
+       // Process base64 image data
+       let imageData: Uint8Array;
+      let filename: string;
+      let mimeType: string;
+
+       if (imageUrl.startsWith("data:image/")) {
+         // Parse base64 image
+         const matches = imageUrl.match(/^data:image\/(\w+);base64,(.+)$/);
+        if (!matches) {
+          throw new Error("Invalid base64 image format");
+        }
+
+        mimeType = `image/${matches[1]}`;
+        filename = `image.${matches[1]}`;
+        const base64Data = matches[2];
+        imageData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+       } else if (imageUrl.startsWith("http")) {
+         // Download remote image
+         const response = await fetch(imageUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to download image: ${response.statusText}`);
+        }
+
+        const contentType = response.headers.get("content-type") || "image/jpeg";
+        const extension = contentType.split("/")[1] || "jpg";
+        filename = `image.${extension}`;
+
+        const buffer = await response.arrayBuffer();
+        imageData = new Uint8Array(buffer);
+        mimeType = contentType;
+      } else {
+        throw new Error("Unsupported image URL format");
+       }
+ 
+       // Create FormData
+       const formData = new FormData();
+      const arrayBuffer = imageData.buffer.slice(imageData.byteOffset, imageData.byteOffset + imageData.byteLength) as ArrayBuffer;
+      const blob = new Blob([arrayBuffer], { type: mimeType });
+       formData.append("file", blob, filename);
+ 
+       // Upload to Z.AI
+       const uploadResponse = await fetch("https://chat.z.ai/api/files", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Origin": ORIGIN_BASE,
+          "Referer": `${ORIGIN_BASE}/`,
+        },
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error(`Upload failed: ${uploadResponse.statusText}`);
+      }
+
+      const uploadResult = await uploadResponse.json() as any;
+       debugLog("Image upload successful: %s", uploadResult.id);
+
+      return {
+        id: uploadResult.id,
+        filename: uploadResult.filename || filename,
+        size: imageData.length,
+        type: mimeType,
+        url: uploadResult.url,
+      };
+    } catch (error) {
+       debugLog("Image upload failed: %v", error);
+      return null;
+    }
+  }
+
+   /**
+    * Process image content in message, return processed message and uploaded file list
+    */
+  static async processImages(
+    messages: Message[],
+    token: string,
+    isVisionModel: boolean = false
+  ): Promise<{ processedMessages: Message[], uploadedFiles: UploadedFile[], uploadedFilesMap: Map<string, UploadedFile> }> {
+    const processedMessages: Message[] = [];
+    const uploadedFiles: UploadedFile[] = [];
+    const uploadedFilesMap = new Map<string, UploadedFile>();
+
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      const processedMsg: Message = { ...msg };
+
+      if (msg.role === "user" && Array.isArray(msg.content)) {
+        const newContent: any[] = [];
+
+        for (const part of msg.content) {
+          if (part.type === "image_url" && part.image_url?.url) {
+             const imageUrl = part.image_url.url;
+ 
+             // Upload image
+             const uploadedFile = await this.uploadImage(imageUrl, token);
+             if (uploadedFile) {
+               if (isVisionModel) {
+                 // GLM-4.5V: Keep in message, but convert URL format
+                 const newUrl = `${uploadedFile.id}_${uploadedFile.filename}`;
+                newContent.push({
+                  type: "image_url",
+                  image_url: { url: newUrl }
+                });
+                uploadedFilesMap.set(imageUrl, uploadedFile);
+                  debugLog("GLM-4.5V image URL converted: %s -> %s", imageUrl.substring(0, 50), newUrl);
+               } else {
+                 // Non-vision model: Add to file list, remove from message
+                 uploadedFiles.push(uploadedFile);
+                 debugLog("Image added to file list: %s", uploadedFile.id);
+              }
+            }
+          } else if (part.type === "text") {
+            newContent.push(part);
+          }
+         }
+ 
+         // If only text content, convert to string format
+         if (newContent.length === 1 && newContent[0].type === "text") {
+          processedMsg.content = newContent[0].text;
+        } else if (newContent.length > 0) {
+          processedMsg.content = newContent;
+        } else {
+          processedMsg.content = "";
+        }
+      }
+
+      processedMessages.push(processedMsg);
+    }
+
+    return {
+      processedMessages,
+      uploadedFiles,
+      uploadedFilesMap
+    };
+  }
+
+   /**
+    * Extract text content of the last user message
+    */
+  static extractLastUserContent(messages: Message[]): string {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
+      if (msg.role === "user") {
+        const content = msg.content;
+        if (typeof content === "string") {
+          return content;
+        } else if (Array.isArray(content)) {
+          for (const part of content) {
+            if (part.type === "text" && part.text) {
+              return part.text;
+            }
+          }
+        }
+      }
+    }
+    return "";
+  }
+}
 
 /**
  * Supported model configuration
@@ -507,15 +1182,11 @@ function processMessages(messages: Message[], modelConfig: ModelConfig): Message
   }
 
   return processedMessages;
-}
+ }
 
-const DEBUG_MODE = Deno.env.get("DEBUG_MODE") !== "false"; // default true
-const DEFAULT_STREAM = Deno.env.get("DEFAULT_STREAM") !== "false"; // default true
-const DASHBOARD_ENABLED = Deno.env.get("DASHBOARD_ENABLED") !== "false"; // default true
-
-/**
- * Global state
- */
+ /**
+  * Global state
+  */
 
 let stats: RequestStats = {
   totalRequests: 0,
@@ -715,23 +1386,44 @@ async function getAnonymousToken(): Promise<string> {
  * @returns { signature: string, timestamp: string }
  */
 async function generateSignature(e: string, t: string, timestamp: number): Promise<{ signature: string, timestamp: string }> {
-  const timestampStr = String(timestamp);
+   const timestampStr = String(timestamp);
+ 
+   // 1. Base64 encode the message content
+   const bodyEncoded = new TextEncoder().encode(t);
+   const bodyBase64 = btoa(String.fromCharCode(...bodyEncoded));
+ 
+   // 2. Construct the string to sign
+   const stringToSign = `${e}|${bodyBase64}|${timestampStr}`;
+ 
+   // 3. Calculate 5-minute time window
+   const timeWindow = Math.floor(timestamp / (5 * 60 * 1000));
+ 
+   // 4. Get signing key
+   const secretEnv = Deno.env.get("ZAI_SIGNING_SECRET");
+  let rootKey: Uint8Array;
 
-  // 1. 对消息内容进行Base64编码 (Fix by @sarices)
-  const bodyEncoded = new TextEncoder().encode(t);
-  const bodyBase64 = btoa(String.fromCharCode(...bodyEncoded));
-
-  // 2. 构造待签名字符串
-  const stringToSign = `${e}|${bodyBase64}|${timestampStr}`;
-
-  // 3. 计算5分钟时间窗口
-  const timeWindow = Math.floor(timestamp / (5 * 60 * 1000));
-
-  // 4. 第一层 HMAC，生成中间密钥
-  const firstKeyMaterial = new TextEncoder().encode("junjie");
+   if (secretEnv) {
+     // Read key from environment variable
+     if (/^[0-9a-fA-F]+$/.test(secretEnv) && secretEnv.length % 2 === 0) {
+       // HEX format
+       rootKey = new Uint8Array(secretEnv.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+     } else {
+       // UTF-8 format
+       rootKey = new TextEncoder().encode(secretEnv);
+    }
+      debugLog("Using environment variable key: %s", secretEnv.substring(0, 10) + "...");
+   } else {
+     // Use new default key (consistent with Python version)
+     const defaultKeyHex = "6b65792d40404040292929282928283929292d787878782626262525252525";
+    rootKey = new Uint8Array(defaultKeyHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+     debugLog("Using default key");
+   }
+ 
+   // 5. First layer HMAC, generate intermediate key
+   const rootKeyBuffer = rootKey.buffer.slice(rootKey.byteOffset, rootKey.byteOffset + rootKey.byteLength) as ArrayBuffer;
   const firstHmacKey = await crypto.subtle.importKey(
     "raw",
-    firstKeyMaterial,
+    rootKeyBuffer,
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"]
@@ -742,11 +1434,11 @@ async function generateSignature(e: string, t: string, timestamp: number): Promi
     new TextEncoder().encode(String(timeWindow))
   );
   const intermediateKey = Array.from(new Uint8Array(firstSignatureBuffer))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
-
-  // 5. 第二层 HMAC，生成最终签名
-  const secondKeyMaterial = new TextEncoder().encode(intermediateKey);
+    .map((b) => b.toString(16).padStart(2, "0"))
+     .join("");
+ 
+   // 5. Second layer HMAC, generate final signature
+   const secondKeyMaterial = new TextEncoder().encode(intermediateKey);
   const secondHmacKey = await crypto.subtle.importKey(
     "raw",
     secondKeyMaterial,
@@ -760,13 +1452,13 @@ async function generateSignature(e: string, t: string, timestamp: number): Promi
     new TextEncoder().encode(stringToSign)
   );
   const signature = Array.from(new Uint8Array(finalSignatureBuffer))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 
-  debugLog("New signature generated successfully: %s", signature);
+   debugLog("New version signature generated successfully: %s", signature);
   return {
-      signature,
-      timestamp: timestampStr
+    signature,
+    timestamp: timestampStr,
   };
 }
 
@@ -776,75 +1468,114 @@ async function callUpstreamWithHeaders(
   authToken: string
 ): Promise<Response> {
   try {
-    debugLog("Calling upstream API: %s", UPSTREAM_URL);
-
-    // 1. Decode JWT to get user_id
-    let userId = "unknown";
+      debugLog("Call upstream API: %s", UPSTREAM_URL);
+ 
+     // 1. Decode JWT to get user_id (multi-field support, consistent with Python version)
+     let userId = "unknown";
     try {
-      const tokenParts = authToken.split('.');
+      const tokenParts = authToken.split(".");
       if (tokenParts.length === 3) {
-        const payload = JSON.parse(new TextDecoder().decode(decodeBase64(tokenParts[1])));
-        userId = payload.id || userId;
-        debugLog("Parsed user_id from JWT: %s", userId);
+        const payload = JSON.parse(
+          new TextDecoder().decode(decodeBase64(tokenParts[1]))
+         );
+ 
+         // Try multiple possible user_id fields (consistent with Python version)
+         for (const key of ["id", "user_id", "uid", "sub"]) {
+          const val = payload[key];
+          if (typeof val === "string" || typeof val === "number") {
+            const strVal = String(val);
+            if (strVal.length > 0) {
+              userId = strVal;
+               debugLog("Parsed user_id from JWT: %s (field: %s)", userId, key);
+              break;
+            }
+          }
+        }
       }
     } catch (e) {
-      debugLog("Failed to parse JWT: %v", e);
-    }
-
-    // 2. Prepare signature parameters
-    const timestamp = Date.now();
+       debugLog("Failed to parse JWT: %v", e);
+     }
+ 
+     // 2. Prepare parameters needed for signature
+     const timestamp = Date.now();
     const requestId = crypto.randomUUID();
-    const userMessage = upstreamReq.messages.filter(m => m.role === 'user').pop()?.content;
-    const lastMessageContent = typeof userMessage === 'string' ? userMessage :
-      (Array.isArray(userMessage) ? userMessage.find(c => c.type === 'text')?.text || "" : "");
+    const lastMessageContent = ImageProcessor.extractLastUserContent(upstreamReq.messages);
 
     if (!lastMessageContent) {
-      throw new Error("Cannot get user message content for signature");
+       throw new Error("Cannot get user message content for signature");
     }
 
-    const e = `requestId,${requestId},timestamp,${timestamp},user_id,${userId}`;
-
-    // 3. Generate new signature
-    const { signature } = await generateSignature(e, lastMessageContent, timestamp);
-    debugLog("Generated new signature: %s", signature);
+     const e = `requestId,${requestId},timestamp,${timestamp},user_id,${userId}`;
+ 
+     // 3. Generate new signature
+     const { signature } = await generateSignature(
+      e,
+      lastMessageContent,
+      timestamp
+    );
+     debugLog("Generate new version signature: %s", signature);
 
     const reqBody = JSON.stringify(upstreamReq);
-    debugLog("Upstream request body: %s", reqBody);
+      debugLog("Upstream request body: %s", reqBody);
+ 
+     // 4. Generate smart browser headers
+     const smartHeaders = await SmartHeaderGenerator.generateHeaders(refererChatID);
+ 
+     // 5. Generate complete browser fingerprint parameters
+     const fingerprintParams = BrowserFingerprintGenerator.generateFingerprintParams(
+      timestamp,
+      requestId,
+      authToken,
+      refererChatID
+     );
+ 
+     // 6. Build complete URL parameters
+     const allParams = {
+      ...fingerprintParams,
+      signature_timestamp: timestamp.toString(),
+    };
 
-    // 4. Build URL with new parameters and headers
-    const params = new URLSearchParams({
-        timestamp: timestamp.toString(),
-        requestId: requestId,
-        user_id: userId,
-        token: authToken,
-        current_url: `${ORIGIN_BASE}/c/${refererChatID}`,
-        pathname: `/c/${refererChatID}`,
-        signature_timestamp: timestamp.toString()
-    });
-    const fullURL = `${UPSTREAM_URL}?${params.toString()}`;
+    const params = new URLSearchParams(allParams);
+     const fullURL = `${UPSTREAM_URL}?${params.toString()}`;
+ 
+     // 7. Merge headers
+     const finalHeaders = {
+      ...smartHeaders,
+      "Authorization": `Bearer ${authToken}`,
+      "X-Signature": signature,
+      "Accept": "application/json, text/event-stream",
+    };
 
     const response = await fetch(fullURL, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json, text/event-stream",
-        "User-Agent": BROWSER_UA,
-        "Authorization": `Bearer ${authToken}`,
-        "X-FE-Version": X_FE_VERSION,
-        "X-Signature": signature,
-        "Origin": ORIGIN_BASE,
-        "Referer": `${ORIGIN_BASE}/c/${refererChatID}`
-      },
-      body: reqBody
+      headers: finalHeaders,
+      body: reqBody,
     });
 
-    debugLog("Upstream response status: %d %s", response.status, response.statusText);
+      debugLog("Upstream response status: %d %s", response.status, response.statusText);
+ 
+     // 8. Mark token as valid on success
+     tokenPool.markSuccess(authToken);
+
     return response;
-  } catch (error) {
-    debugLog("Upstream call failed: %v", error);
+   } catch (error) {
+      debugLog("Failed to call upstream: %v", error);
+ 
+     // Try switching token on failure
+     try {
+      const newToken = await tokenPool.switchToNext();
+       if (newToken) {
+          debugLog("Switch to new token retry: %s", newToken.substring(0, 20));
+         // Retry recursively once, avoid infinite loop
+         return callUpstreamWithHeaders(upstreamReq, refererChatID, newToken);
+      }
+    } catch (retryError) {
+       debugLog("Token switch retry failed: %v", retryError);
+    }
+
     throw error;
-  }
-}
+   }
+ }
 
 /**
  * Transform thinking content based on specified mode
@@ -1535,18 +2266,22 @@ async function handleAnthropicMessages(request: Request): Promise<Response> {
 
   // Get model configuration for the mapped Z.ai model
   const modelConfig = getModelConfig(openaiReq.model);
-  debugLog("📋 Using model config: %s (%s)", modelConfig.name, modelConfig.upstreamId);
-
-  // Choose token for this conversation
-  let authToken = ZAI_TOKEN;
-  if (ANON_TOKEN_ENABLED) {
-    try {
-      const anonToken = await getAnonymousToken();
-      authToken = anonToken;
-      debugLog("Anonymous token obtained for Anthropic request: %s...", anonToken.substring(0, 10));
-    } catch (error) {
-      debugLog("Failed to obtain anonymous token for Anthropic; falling back to configured token: %v", error);
-    }
+   debugLog("📋 Using model config: %s (%s)", modelConfig.name, modelConfig.upstreamId);
+ 
+   // Get token using token pool
+   let authToken: string;
+   try {
+     authToken = await tokenPool.getToken();
+     debugLog("Token obtained successfully: %s...", authToken.substring(0, 10));
+   } catch (error) {
+     debugLog("Token acquisition failed: %v", error);
+    const duration = Date.now() - startTime;
+    recordRequestStats(startTime, path, 500);
+    addLiveRequest(request.method, path, 500, duration, userAgent);
+    return new Response("Failed to get authentication token", {
+      status: 500,
+      headers,
+    });
   }
 
   // Generate session IDs
@@ -2014,20 +2749,24 @@ async function handleChatCompletions(request: Request): Promise<Response> {
     return new Response(null, { status: 200, headers });
   }
 
-  // API key validation
-  const authHeader = request.headers.get("Authorization");
-  if (!validateApiKey(authHeader)) {
-    debugLog("Missing or invalid Authorization header");
-    const duration = Date.now() - startTime;
-    recordRequestStats(startTime, path, 401);
-    addLiveRequest(request.method, path, 401, duration, userAgent);
-    return new Response("Missing or invalid Authorization header", {
-      status: 401,
-      headers
-    });
-  }
+   // API key validation
+   const authHeader = request.headers.get("Authorization");
+   if (authHeader && !validateApiKey(authHeader)) {
+     debugLog("Invalid Authorization header");
+     const duration = Date.now() - startTime;
+     recordRequestStats(startTime, path, 401);
+     addLiveRequest(request.method, path, 401, duration, userAgent);
+     return new Response("Invalid Authorization header", {
+       status: 401,
+       headers
+     });
+   }
 
-  debugLog("API key validated");
+   if (!authHeader) {
+     debugLog("No Authorization header, using anonymous token");
+   } else {
+     debugLog("API key validated");
+   }
 
   // Read request body
   let body: string;
@@ -2075,6 +2814,15 @@ async function handleChatCompletions(request: Request): Promise<Response> {
   const modelConfig = getModelConfig(req.model);
   debugLog("Request parsed - model: %s (%s), stream: %v, messages: %d", req.model, modelConfig.name, req.stream, req.messages.length);
 
+   // Detect model advanced capabilities
+  const capabilities = ModelCapabilityDetector.detectCapabilities(
+    req.model,
+    req.reasoning
+  );
+     debugLog("Model capability detection: thinking=%s, search=%s, advanced search=%s, vision=%s, MCP=%s",
+     capabilities.thinking, capabilities.search, capabilities.advancedSearch,
+     capabilities.vision, capabilities.mcp);
+
   // Cherry Studio debug: inspect each message
   debugLog("🔍 Cherry Studio debug - inspect raw messages:");
   for (let i = 0; i < req.messages.length; i++) {
@@ -2108,74 +2856,116 @@ async function handleChatCompletions(request: Request): Promise<Response> {
 
   // Process and validate messages (multimodal handling)
   const processedMessages = processMessages(req.messages, modelConfig);
-  debugLog("Messages processed, count after processing: %d", processedMessages.length);
-
-  const hasMultimodal = processedMessages.some(msg =>
-    Array.isArray(msg.content) &&
-    msg.content.some(block =>
-      ['image_url', 'video_url', 'document_url', 'audio_url'].includes(block.type)
-    )
-  );
+   debugLog("Messages processed, count after processing: %d", processedMessages.length);
+ 
+   // Check if contains multimodal content and use new image processor
+   const hasMultimodal = ImageProcessor.hasImageContent(req.messages);
+  let finalMessages = processedMessages;
+  let uploadedFiles: UploadedFile[] = [];
 
   if (hasMultimodal) {
-    debugLog("🎯 Detected full multimodal request, model: %s", modelConfig.name);
-    if (!modelConfig.capabilities.vision) {
-      debugLog("❌ Severe error: model doesn't support multimodal but received media content!");
-      debugLog("💡 Cherry Studio users: ensure you selected 'glm-4.5v' instead of 'GLM-4.5'");
-      debugLog("🔧 Model mapping: %s → %s (vision: %s)",
-        req.model, modelConfig.upstreamId, modelConfig.capabilities.vision);
-    } else {
-      debugLog("✅ GLM-4.5V supports full multimodal understanding: images, video, documents, audio");
+      debugLog("🎯 Detected image content, starting processing, model: %s", modelConfig.name);
+ 
+     // Check anonymous token restrictions
+     if (tokenPool.isAnonymousToken(authToken)) {
+       debugLog("❌ Anonymous token does not support image processing");
+      const duration = Date.now() - startTime;
+      recordRequestStats(startTime, path, 400);
+      addLiveRequest(request.method, path, 400, duration, userAgent);
+       return new Response("Anonymous token does not support image processing, please configure ZAI_TOKEN environment variable", {
+         status: 400,
+         headers,
+       });
+    }
 
-      if (!ZAI_TOKEN || ZAI_TOKEN.trim() === "") {
-        debugLog("⚠️ Important warning: using anonymous token for multimodal requests");
-        debugLog("💡 Z.ai anonymous tokens may not support image/video/document processing");
-        debugLog("🔧 Fix: set ZAI_TOKEN environment variable to an official API token");
-        debugLog("📋 If requests fail, token permissions are likely the cause");
-      } else {
-        debugLog("✅ Using official API token; full multimodal features supported");
+    if (!capabilities.vision) {
+       debugLog("❌ Serious error: Model does not support multimodal, but received image content!");
+       debugLog(
+         "💡 Cherry Studio users please check: Confirm selected 'glm-4.5v' not 'GLM-4.5'"
+       );
+       debugLog(
+         "🔧 Model mapping status: %s → %s (vision: %s)",
+         req.model,
+         modelConfig.upstreamId,
+         capabilities.vision
+       );
+    } else {
+       debugLog("✅ Using advanced image processor to process image content");
+
+       try {
+         // Use new image processor
+         const imageProcessResult = await ImageProcessor.processImages(
+          req.messages,
+          authToken,
+          capabilities.vision
+        );
+
+        finalMessages = imageProcessResult.processedMessages;
+        uploadedFiles = imageProcessResult.uploadedFiles;
+
+         debugLog("Image processing completed: processed messages=%d, uploaded files=%d",
+           finalMessages.length, uploadedFiles.length);
+
+      } catch (error) {
+         debugLog("Image processing failed: %v", error);
+        const duration = Date.now() - startTime;
+        recordRequestStats(startTime, path, 500);
+        addLiveRequest(request.method, path, 500, duration, userAgent);
+         return new Response("Image processing failed", {
+          status: 500,
+          headers,
+        });
       }
     }
-  } else if (modelConfig.capabilities.vision && modelConfig.id === 'glm-4.5v') {
-    debugLog("ℹ️ Using GLM-4.5V model but no media detected; processing text only");
+  } else if (capabilities.vision && modelConfig.id === "glm-4.5v") {
+     debugLog("ℹ️ Using GLM-4.5V model but no image data detected, processing text content only");
   }
 
   // Generate session IDs (prefer client-provided values if present in incoming body)
   const chatID = (typeof incomingBody === "object" && incomingBody?.chat_id) ? String(incomingBody.chat_id) : `${Date.now()}-${Math.floor(Date.now() / 1000)}`;
   const msgID = (typeof incomingBody === "object" && incomingBody?.id) ? String(incomingBody.id) : Date.now().toString();
 
-  // Build upstream request
+   // Get MCP server list for model
+  const mcpServers = ModelCapabilityDetector.getMCPServersForModel(capabilities);
+  const hiddenMcpFeatures = ModelCapabilityDetector.getHiddenMCPFeatures();
+
+   // Extract last user message content (for signature)
+  const lastUserContent = ImageProcessor.extractLastUserContent(req.messages);
+
+   // Construct upstream request (enhanced)
   const upstreamReq: UpstreamRequest = {
-    stream: true, // always fetch upstream as stream
+     stream: true, // Always fetch upstream as stream
     chat_id: chatID,
     id: msgID,
     model: modelConfig.upstreamId,
-    messages: processedMessages,
+    messages: finalMessages,
     params: modelConfig.defaultParams,
     features: {
-      enable_thinking: parseFeatureHeader(thinkingHeader, modelConfig.capabilities.thinking),
-      image_generation: parseFeatureHeader(imageGenerationHeader, false),
-      web_search: parseFeatureHeader(webSearchHeader, false),
-      auto_web_search: parseFeatureHeader(autoWebSearchHeader, false),
-      preview_mode: modelConfig.capabilities.vision
+      image_generation: false,
+      web_search: capabilities.search || capabilities.advancedSearch,
+      auto_web_search: capabilities.search || capabilities.advancedSearch,
+      preview_mode: capabilities.search || capabilities.advancedSearch,
+      flags: [],
+      features: hiddenMcpFeatures,
+      enable_thinking: capabilities.thinking,
     },
     background_tasks: {
-      title_generation: parseFeatureHeader(titleGenerationHeader, false),
-      tags_generation: parseFeatureHeader(tagsGenerationHeader, false)
+      title_generation: false,
+      tags_generation: false,
     },
-    mcp_servers: (parseFeatureHeader(mcpHeader, modelConfig.capabilities.mcp) && modelConfig.capabilities.mcp) ? [] : undefined,
-    model_item: {
-      id: modelConfig.upstreamId,
-      name: modelConfig.name,
-      owned_by: "openai",
+    mcp_servers: mcpServers,
+     model_item: {
+       id: modelConfig.upstreamId,
+       name: req.model, // Use original request model name
+       owned_by: "openai",
       openai: {
         id: modelConfig.upstreamId,
         name: modelConfig.upstreamId,
         owned_by: "openai",
         openai: {
-          id: modelConfig.upstreamId
+          id: modelConfig.upstreamId,
         },
-        urlIdx: 1
+        urlIdx: 1,
       },
       urlIdx: 1,
       info: {
@@ -2186,46 +2976,62 @@ async function handleChatCompletions(request: Request): Promise<Response> {
         params: modelConfig.defaultParams,
         meta: {
           profile_image_url: "/static/favicon.png",
-          description: modelConfig.capabilities.vision ? "Advanced visual understanding and analysis" : "Most advanced model, proficient in coding and tool use",
+          description: capabilities.vision
+            ? "Advanced visual understanding and analysis"
+            : capabilities.thinking
+            ? "Advanced reasoning and thinking model"
+            : capabilities.search
+            ? "Web search enhanced model"
+            : "Most advanced model, proficient in coding and tool use",
           capabilities: {
-            vision: modelConfig.capabilities.vision,
+            vision: capabilities.vision,
             citations: false,
-            preview_mode: modelConfig.capabilities.vision,
-            web_search: false,
+            preview_mode: capabilities.search || capabilities.advancedSearch,
+            web_search: capabilities.search || capabilities.advancedSearch,
             language_detection: false,
             restore_n_source: false,
-            mcp: modelConfig.capabilities.mcp,
-            file_qa: modelConfig.capabilities.mcp,
+            mcp: capabilities.mcp,
+            file_qa: capabilities.mcp,
             returnFc: true,
-            returnThink: modelConfig.capabilities.thinking,
-            think: modelConfig.capabilities.thinking
-          }
-        }
-      }
+            returnThink: capabilities.thinking,
+            think: capabilities.thinking,
+          },
+        },
+      },
     },
     tool_servers: [],
     variables: {
       "{{USER_NAME}}": `Guest-${Date.now()}`,
       "{{USER_LOCATION}}": "Unknown",
-      "{{CURRENT_DATETIME}}": new Date().toLocaleString('en-US'),
-      "{{CURRENT_DATE}}": new Date().toLocaleDateString('en-US'),
-      "{{CURRENT_TIME}}": new Date().toLocaleTimeString('en-US'),
-      "{{CURRENT_WEEKDAY}}": new Date().toLocaleDateString('en-US', { weekday: 'long' }),
-      "{{CURRENT_TIMEZONE}}": "UTC",
-      "{{USER_LANGUAGE}}": "en-US"
-    }
-  };
-
-  // Choose token for this conversation
-  let authToken = ZAI_TOKEN;
-  if (ANON_TOKEN_ENABLED) {
-    try {
-      const anonToken = await getAnonymousToken();
-      authToken = anonToken;
-      debugLog("Anonymous token obtained: %s...", anonToken.substring(0, 10));
-    } catch (error) {
-      debugLog("Failed to obtain anonymous token; falling back to configured token: %v", error);
-    }
+      "{{CURRENT_DATETIME}}": new Date().toLocaleString("zh-CN"),
+      "{{CURRENT_DATE}}": new Date().toLocaleDateString("zh-CN"),
+      "{{CURRENT_TIME}}": new Date().toLocaleTimeString("zh-CN"),
+      "{{CURRENT_WEEKDAY}}": new Date().toLocaleDateString("zh-CN", {
+        weekday: "long",
+      }),
+      "{{CURRENT_TIMEZONE}}": "Asia/Shanghai",
+      "{{USER_LANGUAGE}}": "zh-CN",
+     },
+     // Add file list (if there are uploaded images)
+     ...(uploadedFiles.length > 0 && !capabilities.vision ? { files: uploadedFiles } : {}),
+     // Add signature prompt
+     signature_prompt: lastUserContent,
+   };
+ 
+   // Get token using token pool
+   let authToken: string;
+   try {
+     authToken = await tokenPool.getToken();
+     debugLog("Token obtained successfully: %s...", authToken.substring(0, 10));
+   } catch (error) {
+     debugLog("Token acquisition failed: %v", error);
+    const duration = Date.now() - startTime;
+    recordRequestStats(startTime, path, 500);
+    addLiveRequest(request.method, path, 500, duration, userAgent);
+    return new Response("Failed to get authentication token", {
+      status: 500,
+      headers,
+    });
   }
 
   // Call upstream

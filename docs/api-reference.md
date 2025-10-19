@@ -52,4 +52,14 @@ All feature headers accept the following values (case-insensitive):
 
 Note: Some features are model-dependent. For example, MCP tools are only available on models that support them, and web search requires a valid Z.ai API token.
 
+## 🔐 Security and Authentication
+
+### Request Signature
+All requests to the upstream Z.ai API are signed using a dual-layer HMAC-SHA256 algorithm with Base64 encoding for enhanced security. The signature is generated automatically and included in the request headers.
+
+### Token Pool Management
+ZtoApi includes built-in token pool management for efficient handling of API tokens, supporting anonymous access and automatic token rotation. This ensures reliable operation without manual intervention.
+
+For detailed configuration, see [Getting Started](../docs/getting-started.md) and [signature-update-guide.md](../signature-update-guide.md).
+
 For detailed usage examples, see [Features](../docs/features.md) and [Examples](../docs/examples.md).

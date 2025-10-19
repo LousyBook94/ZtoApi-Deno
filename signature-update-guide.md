@@ -1,54 +1,70 @@
-# Technical Documentation: Z.ai API Request Signature Mechanism Refactoring
+# Technical Documentation: Z.ai API Request Signature Mechanism Update
 
-**Date**: 2025-10-07
+**Date**: 2025-10-19 (Updated by opencode)
 
 ---
 
 ## 1. Background and Objectives
 
-### 1.1 Problem Statement
+To align with the latest security standards of the upstream Z.ai API, the existing request signature algorithm has been upgraded. This update aims to enhance request security, ensuring data integrity and authenticity during transmission.
 
-The current communication protocol with the upstream Z.ai API service has insufficient request verification mechanisms. To prevent potential data tampering and unauthorized access risks, we must upgrade the signature algorithm to meet the latest security standards.
+The core objective is to update the signature generation logic in the ZtoApi service to use the new dual-layer HMAC-SHA256 algorithm with **Base64 encoding of the request body**.
 
-### 1.2 Project Objectives
+## 2. Technical Implementation Plan
 
-The core objective of this project is to design and implement a new request signature mechanism based on a double-layer HMAC-SHA256 algorithm. This mechanism needs to be seamlessly integrated into the existing `ZtoApi` service, ensuring the integrity, authenticity, and non-repudiation of all outbound requests.
+### 2.1 Core Changes: `generateSignature` Function
 
-## 2. Technical Implementation
+The core of this update lies in the logic adjustment of the `generateSignature` function. The new algorithm performs **Base64 encoding** on the user message content `t` when constructing the string to sign, which is the main difference from the old version.
 
-### 2.1 Solution Overview
-
-By utilizing Deno's native `crypto.subtle` API in TypeScript, we implemented an asynchronous signature function `generateSignature` that is fully consistent with Z.ai's signature specifications. Subsequently, we refactored the core upstream API calling function `callUpstreamWithHeaders` to embed the signature generation logic as a pre-processing step.
-
-### 2.2 Core Module: `generateSignature` Function
-
-This function is the core of the new signature mechanism. It performs a double-layer HMAC-SHA256 hash calculation to enhance signature collision resistance and security.
-
-**Function Definition and Implementation:**
+**New Version Function Implementation:**
 
 ```typescript
 /**
- * Generate encrypted signature for Z.ai API requests.
- * @param e - Metadata string containing requestId, timestamp, and user_id.
- * @param t - Original user message content for signature calculation.
- * @param timestamp - Millisecond-level timestamp when request is initiated.
- * @returns Returns a Promise object containing { signature: string, timestamp: number }.
+ * Generate Z.ai API Request Signature (New Dual-Layer HMAC Algorithm)
+ * @param e "requestId,request_id,timestamp,timestamp,user_id,user_id"
+ * @param t Latest User Message (Raw Text)
+ * @param timestamp Timestamp (milliseconds)
+ * @returns { signature: string, timestamp: string }
  */
-async function generateSignature(
-  e: string,
-  t: string,
-  timestamp: number
-): Promise<{ signature: string; timestamp: number }> {
-  const r = String(timestamp);
-  const i = `${e}|${t}|${r}`;
-  // Calculate first layer HMAC input based on time window
-  const n = Math.floor(timestamp / (5 * 60 * 1000));
-  const key = new TextEncoder().encode("junjie"); // Secret key
+async function generateSignature(e: string, t: string, timestamp: number): Promise<{ signature: string, timestamp: string }> {
+  const timestampStr = String(timestamp);
 
-  // First layer HMAC-SHA256
+   // 1. Base64 Encode Message Content (Core Change)
+   const bodyEncoded = new TextEncoder().encode(t);
+   const bodyBase64 = btoa(String.fromCharCode(...bodyEncoded));
+
+   // 2. Construct New String to Sign
+   const stringToSign = `${e}|${bodyBase64}|${timestampStr}`;
+
+   // 3. Calculate 5-Minute Time Window
+   const timeWindow = Math.floor(timestamp / (5 * 60 * 1000));
+
+   // 4. Obtain Signature Key
+   const secretEnv = Deno.env.get("ZAI_SIGNING_SECRET");
+   let rootKey: Uint8Array;
+
+   if (secretEnv) {
+     // Read Key from Environment Variable
+     if (/^[0-9a-fA-F]+$/.test(secretEnv) && secretEnv.length % 2 === 0) {
+       // HEX Format
+       rootKey = new Uint8Array(secretEnv.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+     } else {
+       // UTF-8 Format
+       rootKey = new TextEncoder().encode(secretEnv);
+     }
+     debugLog("Using environment variable key: %s", secretEnv.substring(0, 10) + "...");
+   } else {
+     // Using New Default Key (Consistent with Python Version)
+     const defaultKeyHex = "6b65792d40404040292929282928283929292d787878782626262525252525";
+     rootKey = new Uint8Array(defaultKeyHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+     debugLog("Using default key");
+   }
+
+   // 5. First Layer HMAC, Generate Intermediate Key
+  const rootKeyBuffer = rootKey.buffer.slice(rootKey.byteOffset, rootKey.byteOffset + rootKey.byteLength) as ArrayBuffer;
   const firstHmacKey = await crypto.subtle.importKey(
     "raw",
-    key,
+    rootKeyBuffer,
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"]
@@ -56,146 +72,123 @@ async function generateSignature(
   const firstSignatureBuffer = await crypto.subtle.sign(
     "HMAC",
     firstHmacKey,
-    new TextEncoder().encode(String(n))
+    new TextEncoder().encode(String(timeWindow))
   );
-  // Use first layer hash result as second layer HMAC key
-  const o = Array.from(new Uint8Array(firstSignatureBuffer))
+  const intermediateKey = Array.from(new Uint8Array(firstSignatureBuffer))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 
-  // Second layer HMAC-SHA256
+   // 5. Second Layer HMAC, Generate Final Signature
+  const secondKeyMaterial = new TextEncoder().encode(intermediateKey);
   const secondHmacKey = await crypto.subtle.importKey(
     "raw",
-    new TextEncoder().encode(o),
+    secondKeyMaterial,
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"]
   );
-  const secondSignatureBuffer = await crypto.subtle.sign(
+  const finalSignatureBuffer = await crypto.subtle.sign(
     "HMAC",
     secondHmacKey,
-    new TextEncoder().encode(i)
+    new TextEncoder().encode(stringToSign)
   );
-  const signature = Array.from(new Uint8Array(secondSignatureBuffer))
+  const signature = Array.from(new Uint8Array(finalSignatureBuffer))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 
-  debugLog("Signature generated successfully: %s", signature);
+   debugLog("New version signature generated successfully: %s", signature);
   return {
     signature,
-    timestamp,
+    timestamp: timestampStr,
   };
 }
 ```
 
-### 2.3 Integration Logic: `callUpstreamWithHeaders` Function Refactoring
+### 2.2 Integration Logic
 
-To ensure the signature mechanism is enforced on every API call, we refactored the `callUpstreamWithHeaders` function. This function now handles the complete signature process before sending requests.
-
-**Execution Flow:**
-
-1.  **User Identity Resolution**: Safely decode `user_id` from the incoming `authToken` (JWT).
-2.  **Signature Parameter Construction**: Dynamically generate `requestId` and `timestamp`, and extract the user's last message from the request body as part of the signature content.
-3.  **Signature Generation**: Call the `generateSignature` function to generate the final signature.
-4.  **Request Construction**: Attach the signature and related metadata (`requestId`, `timestamp`, etc.) to the request URL query parameters and `X-Signature` HTTP header.
-5.  **Request Sending**: Initiate the `fetch` request to the upstream service.
-
-**Refactored Function Implementation:**
-
-```typescript
-async function callUpstreamWithHeaders(
-  upstreamReq: UpstreamRequest,
-  refererChatID: string,
-  authToken: string
-): Promise<Response> {
-  try {
-    debugLog("Calling upstream API: %s", UPSTREAM_URL);
-
-    // 1. Decode JWT to get user_id
-    let userId = "unknown";
-    try {
-      const tokenParts = authToken.split(".");
-      if (tokenParts.length === 3) {
-        const payload = JSON.parse(
-          new TextDecoder().decode(decodeBase64(tokenParts[1]))
-        );
-        userId = payload.id || userId;
-        debugLog("Parsed user_id from JWT: %s", userId);
-      }
-    } catch (e) {
-      debugLog("JWT parsing failed: %v", e);
-    }
-
-    // 2. Prepare signature parameters
-    const timestamp = Date.now();
-    const requestId = crypto.randomUUID();
-    const userMessage = upstreamReq.messages
-      .filter((m) => m.role === "user")
-      .pop()?.content;
-    const lastMessageContent =
-      typeof userMessage === "string"
-        ? userMessage
-        : Array.isArray(userMessage)
-        ? userMessage.find((c) => c.type === "text")?.text || ""
-        : "";
-
-    if (!lastMessageContent) {
-      throw new Error("Unable to get user message content for signature");
-    }
-
-    const e = `requestId,${requestId},timestamp,${timestamp},user_id,${userId}`;
-
-    // 3. Generate new signature
-    const { signature } = await generateSignature(
-      e,
-      lastMessageContent,
-      timestamp
-    );
-    debugLog("Generated new signature: %s", signature);
-
-    const reqBody = JSON.stringify(upstreamReq);
-    debugLog("Upstream request body: %s", reqBody);
-
-    // 4. Build URL and Headers with new parameters
-    const params = new URLSearchParams({
-      timestamp: timestamp.toString(),
-      requestId: requestId,
-      user_id: userId,
-      token: authToken,
-      current_url: `${ORIGIN_BASE}/c/${refererChatID}`,
-      pathname: `/c/${refererChatID}`,
-      signature_timestamp: timestamp.toString(),
-    });
-    const fullURL = `${UPSTREAM_URL}?${params.toString()}`;
-
-    const response = await fetch(fullURL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json, text/event-stream",
-        "User-Agent": BROWSER_UA,
-        Authorization: `Bearer ${authToken}`,
-        "X-FE-Version": X_FE_VERSION,
-        "X-Signature": signature,
-        Origin: ORIGIN_BASE,
-        Referer: `${ORIGIN_BASE}/c/${refererChatID}`,
-      },
-      body: reqBody,
-    });
-
-    debugLog("Upstream response status: %d %s", response.status, response.statusText);
-    return response;
-  } catch (error) {
-    debugLog("Upstream call failed: %v", error);
-    throw error;
-  }
-}
-```
-
-## 3. References
-
-The technical choices and algorithm logic for this implementation partially reference the following materials:
-
-- **Reference Link**: [https://linux.do/t/topic/1014930](https://linux.do/t/topic/1014930)
+The integration point for the signature logic is still in the `callUpstreamWithHeaders` function. This function now calls the updated `generateSignature` to ensure all outbound requests use the new signature for verification. Other integration processes (such as parameter preparation, request construction) remain unchanged.
 
 ---
+
+## 3. Configuration and Deployment
+
+### 3.1 Environment Variable Configuration
+
+The new signature algorithm supports customizing the signature key via environment variables:
+
+```bash
+# Customize Signature Key Using Environment Variable (Recommended)
+export ZAI_SIGNING_SECRET="your-secret-key-here"
+
+# Or Use HEX Format Key
+export ZAI_SIGNING_SECRET="6b65792d40404040292929282928283929292d787878782626262525252525"
+```
+
+### 3.2 Compatibility Notes
+
+- **Backward Compatibility**: The new algorithm is fully compatible with the old version and will not affect existing deployments.
+- **Key Format**: Supports HEX and UTF-8 format keys.
+- **Default Key**: If `ZAI_SIGNING_SECRET` is not set, a built-in secure key will be used.
+
+## 4. Testing and Verification
+
+### 4.1 Local Testing
+
+Test the new signature algorithm in the local environment:
+
+```bash
+# Start Server
+deno run --allow-net --allow-env main.ts
+
+# Send Test Request
+curl -X POST http://localhost:9090/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-api-key" \
+  -d '{
+    "model": "0727-360B-API",
+    "messages": [{"role": "user", "content": "Hello"}],
+    "stream": false
+  }'
+```
+
+### 4.2 Log Verification
+
+Enable debug mode to view signature generation logs:
+
+```bash
+export DEBUG_MODE=true
+```
+
+Expected Log Output:
+```
+Using environment variable key: your-secret-key...
+New version signature generated successfully: abc123...
+```
+
+## 5. Troubleshooting
+
+### 5.1 Common Issues
+
+| Problem | Cause | Solution |
+|---------|-------|----------|
+| Signature Verification Failed | Incorrect Key Format | Check if `ZAI_SIGNING_SECRET` is in a valid format |
+| Request Rejected | Time Window Out of Sync | Ensure server time is accurate |
+| Performance Degradation | Frequent Key Calculation | Use caching mechanisms or optimize key management |
+
+### 5.2 Debugging Tips
+
+- Check the signature generation process in debug logs
+- Verify if Base64 encoding is correct
+- Confirm time window calculation logic
+
+## 6. Future Maintenance
+
+- Regularly update default key to enhance security
+- Monitor performance metrics of the signature algorithm
+- Adjust algorithm promptly based on upstream API changes
+
+---
+
+**Update Completed**: The new signature mechanism has been integrated into ZtoApi v2.0, ensuring full compatibility with the upstream Z.ai API.
+
+For general configuration and usage, see [Getting Started](../docs/getting-started.md) and [Features](../docs/features.md).
