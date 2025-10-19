@@ -380,19 +380,19 @@ class SmartHeaderGenerator {
    /**
     * Generate smart browser headers
     */
-  static async generateHeaders(chatId: string = ""): Promise<Record<string, string>> {
-    // 检查缓存
-    const now = Date.now();
+   static async generateHeaders(chatId: string = ""): Promise<Record<string, string>> {
+     // Check cache
+     const now = Date.now();
     if (this.cachedHeaders && this.cacheExpiry > now) {
       const headers = { ...this.cachedHeaders };
       if (chatId) {
         headers["Referer"] = `${ORIGIN_BASE}/c/${chatId}`;
       }
       return headers;
-    }
+     }
 
-    // 生成新的头部
-    const headers = await this.generateFreshHeaders();
+     // Generate new headers
+     const headers = await this.generateFreshHeaders();
     this.cachedHeaders = headers;
     this.cacheExpiry = now + this.CACHE_DURATION;
 
@@ -400,9 +400,9 @@ class SmartHeaderGenerator {
      return headers;
   }
 
-  private static async generateFreshHeaders(): Promise<Record<string, string>> {
-    // 随机选择浏览器配置
-    const browserConfigs = [
+   private static async generateFreshHeaders(): Promise<Record<string, string>> {
+     // Randomly select browser configuration
+     const browserConfigs = [
       {
         ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
         secChUa: '"Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"',
@@ -427,9 +427,9 @@ class SmartHeaderGenerator {
 
     const config = browserConfigs[Math.floor(Math.random() * browserConfigs.length)];
 
-    return {
-      // 基础头部
-      "Accept": "*/*",
+     return {
+       // Basic headers
+       "Accept": "*/*",
       "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
       "Accept-Encoding": "gzip, deflate, br, zstd",
       "Cache-Control": "no-cache",
@@ -438,16 +438,16 @@ class SmartHeaderGenerator {
       "Pragma": "no-cache",
       "Sec-Fetch-Dest": "empty",
       "Sec-Fetch-Mode": "cors",
-      "Sec-Fetch-Site": "same-origin",
-
-      // 浏览器特定头部
-      "User-Agent": config.ua,
+       "Sec-Fetch-Site": "same-origin",
+ 
+       // Browser-specific headers
+       "User-Agent": config.ua,
       "Sec-Ch-Ua": config.secChUa,
       "Sec-Ch-Ua-Mobile": "?0",
-      "Sec-Ch-Ua-Platform": '"Windows"',
-
-      // Z.AI 特定头部
-      "Origin": ORIGIN_BASE,
+       "Sec-Ch-Ua-Platform": '"Windows"',
+ 
+       // Z.AI specific headers
+       "Origin": ORIGIN_BASE,
       "Referer": `${ORIGIN_BASE}/`,
       "X-Fe-Version": X_FE_VERSION,
     };
@@ -475,16 +475,16 @@ class BrowserFingerprintGenerator {
     requestId: string,
     token: string,
     chatId: string = ""
-  ): Record<string, string> {
-    // 从 JWT token 提取用户 ID（多字段支持，与 Python 版本一致）
-    let userId = "guest";
+   ): Record<string, string> {
+     // Extract user ID from JWT token (multi-field support, consistent with Python version)
+     let userId = "guest";
     try {
       const tokenParts = token.split(".");
       if (tokenParts.length === 3) {
-        const payload = JSON.parse(atob(tokenParts[1]));
-
-        // 尝试多个可能的 user_id 字段（与 Python 版本一致）
-        for (const key of ["id", "user_id", "uid", "sub"]) {
+         const payload = JSON.parse(atob(tokenParts[1]));
+ 
+         // Try multiple possible user_id fields (consistent with Python version)
+         for (const key of ["id", "user_id", "uid", "sub"]) {
           const val = payload[key];
           if (typeof val === "string" || typeof val === "number") {
             const strVal = String(val);
@@ -502,34 +502,34 @@ class BrowserFingerprintGenerator {
     const now = new Date(timestamp);
     const localTime = now.toISOString().replace('T', ' ').substring(0, 23) + 'Z';
 
-    return {
-      // 基础参数
-      "timestamp": timestamp.toString(),
+     return {
+       // Basic parameters
+       "timestamp": timestamp.toString(),
       "requestId": requestId,
       "user_id": userId,
       "version": "0.0.1",
       "platform": "web",
-      "token": token,
-
-      // 浏览器环境参数
-      "user_agent": BROWSER_UA,
+       "token": token,
+ 
+       // Browser environment parameters
+       "user_agent": BROWSER_UA,
       "language": "zh-CN",
       "languages": "zh-CN,zh",
       "timezone": "Asia/Shanghai",
-      "cookie_enabled": "true",
-
-      // 屏幕参数
-      "screen_width": "2048",
+       "cookie_enabled": "true",
+ 
+       // Screen parameters
+       "screen_width": "2048",
       "screen_height": "1152",
       "screen_resolution": "2048x1152",
       "viewport_height": "654",
       "viewport_width": "1038",
       "viewport_size": "1038x654",
       "color_depth": "24",
-      "pixel_ratio": "1.25",
-
-      // URL 参数
-      "current_url": chatId ? `${ORIGIN_BASE}/c/${chatId}` : ORIGIN_BASE,
+       "pixel_ratio": "1.25",
+ 
+       // URL parameters
+       "current_url": chatId ? `${ORIGIN_BASE}/c/${chatId}` : ORIGIN_BASE,
       "pathname": chatId ? `/c/${chatId}` : "/",
       "search": "",
       "hash": "",
@@ -537,22 +537,22 @@ class BrowserFingerprintGenerator {
       "hostname": "chat.z.ai",
       "protocol": "https:",
       "referrer": "",
-      "title": "Z.ai Chat - Free AI powered by GLM-4.6 & GLM-4.5",
-
-      // 时间参数
-      "timezone_offset": "-480",
+       "title": "Z.ai Chat - Free AI powered by GLM-4.6 & GLM-4.5",
+ 
+       // Time parameters
+       "timezone_offset": "-480",
       "local_time": localTime,
-      "utc_time": now.toUTCString(),
-
-      // 设备参数
-      "is_mobile": "false",
+       "utc_time": now.toUTCString(),
+ 
+       // Device parameters
+       "is_mobile": "false",
       "is_touch": "false",
       "max_touch_points": "10",
       "browser_name": "Chrome",
-      "os_name": "Windows",
-
-      // 签名参数
-      "signature_timestamp": timestamp.toString(),
+       "os_name": "Windows",
+ 
+       // Signature parameters
+       "signature_timestamp": timestamp.toString(),
     };
   }
 }
@@ -601,12 +601,12 @@ class TokenPool {
     this.initializeTokens();
   }
 
-  /**
-   * 初始化 Token 池
-   */
-  private initializeTokens(): void {
-    // 从环境变量读取多个 Token，用逗号分隔
-    const tokenEnv = Deno.env.get("ZAI_TOKENS");
+   /**
+    * Initialize Token pool
+    */
+   private initializeTokens(): void {
+     // Read multiple tokens from environment variable, separated by commas
+     const tokenEnv = Deno.env.get("ZAI_TOKENS");
     if (tokenEnv) {
       const tokenList = tokenEnv.split(",").map(t => t.trim()).filter(t => t.length > 0);
       this.tokens = tokenList.map(token => ({
@@ -616,9 +616,9 @@ class TokenPool {
         failureCount: 0
       }));
       debugLog("Token pool initialized, contains %d tokens", this.tokens.length);
-    } else if (ZAI_TOKEN) {
-      // 兼容单个 Token 配置
-      this.tokens = [{
+     } else if (ZAI_TOKEN) {
+       // Compatible with single token configuration
+       this.tokens = [{
         token: ZAI_TOKEN,
         isValid: true,
         lastUsed: 0,
@@ -630,26 +630,26 @@ class TokenPool {
     }
   }
 
-  /**
-   * 获取下一个可用 Token
-   */
-  async getToken(): Promise<string> {
-    // 如果有配置的 Token，尝试使用
-    if (this.tokens.length > 0) {
+   /**
+    * Get next available token
+    */
+   async getToken(): Promise<string> {
+     // If there are configured tokens, try to use them
+     if (this.tokens.length > 0) {
       const token = this.getNextValidToken();
       if (token) {
         token.lastUsed = Date.now();
         return token.token;
-      }
-    }
-
-    // 降级到匿名 Token
-    return await this.getAnonymousToken();
+       }
+     }
+ 
+     // Downgrade to anonymous token
+     return await this.getAnonymousToken();
   }
 
-  /**
-   * 获取下一个有效的配置 Token
-   */
+   /**
+    * Get next valid configured token
+    */
   private getNextValidToken(): TokenInfo | null {
     const startIndex = this.currentIndex;
 
@@ -659,41 +659,41 @@ class TokenPool {
         return tokenInfo;
       }
       this.currentIndex = (this.currentIndex + 1) % this.tokens.length;
-    } while (this.currentIndex !== startIndex);
-
-    return null; // 所有 Token 都不可用
+     } while (this.currentIndex !== startIndex);
+ 
+     return null; // All tokens are unavailable
   }
 
-  /**
-   * 切换到下一个 Token（当前 Token 失败时调用）
-   */
+   /**
+    * Switch to next token (called when current token fails)
+    */
   async switchToNext(): Promise<string | null> {
-    if (this.tokens.length === 0) return null;
-
-    // 标记当前 Token 为失败
-    const currentToken = this.tokens[this.currentIndex];
+     if (this.tokens.length === 0) return null;
+ 
+     // Mark current token as failed
+     const currentToken = this.tokens[this.currentIndex];
     currentToken.failureCount++;
     if (currentToken.failureCount >= 3) {
-      currentToken.isValid = false;
-       debugLog("Token marked as invalid: %s", currentToken.token.substring(0, 20));
-    }
-
-    // 切换到下一个
-    this.currentIndex = (this.currentIndex + 1) % this.tokens.length;
+       currentToken.isValid = false;
+        debugLog("Token marked as invalid: %s", currentToken.token.substring(0, 20));
+     }
+ 
+     // Switch to next
+     this.currentIndex = (this.currentIndex + 1) % this.tokens.length;
     const nextToken = this.tokens[this.currentIndex];
 
     if (nextToken && nextToken.isValid) {
        debugLog("Switch to next token: %s", nextToken.token.substring(0, 20));
       nextToken.lastUsed = Date.now();
-      return nextToken.token;
-    }
-
-    return null; // 所有配置 Token 都不可用
+       return nextToken.token;
+     }
+ 
+     return null; // All configured tokens are unavailable
   }
 
-  /**
-   * 重置 Token 状态（成功调用后）
-   */
+   /**
+    * Reset token status (after successful call)
+    */
   markSuccess(token: string): void {
     const tokenInfo = this.tokens.find(t => t.token === token);
     if (tokenInfo) {
@@ -702,21 +702,21 @@ class TokenPool {
     }
   }
 
-  /**
-   * 获取匿名 Token
-   */
+   /**
+    * Get anonymous token
+    */
   private async getAnonymousToken(): Promise<string> {
-    const now = Date.now();
-
-    // 检查缓存是否有效
-    if (this.anonymousToken && this.anonymousTokenExpiry > now) {
+     const now = Date.now();
+ 
+     // Check if cache is valid
+     if (this.anonymousToken && this.anonymousTokenExpiry > now) {
       return this.anonymousToken;
     }
 
     try {
-      this.anonymousToken = await getAnonymousToken();
-      this.anonymousTokenExpiry = now + (60 * 60 * 1000); // 1小时有效期
-       debugLog("Anonymous token obtained and cached");
+       this.anonymousToken = await getAnonymousToken();
+       this.anonymousTokenExpiry = now + (60 * 60 * 1000); // 1 hour validity period
+        debugLog("Anonymous token obtained and cached");
       return this.anonymousToken;
     } catch (error) {
       debugLog("Failed to obtain anonymous token: %v", error);
@@ -724,32 +724,32 @@ class TokenPool {
     }
   }
 
-  /**
-   * 清除匿名 Token 缓存
-   */
+   /**
+    * Clear anonymous token cache
+    */
   clearAnonymousTokenCache(): void {
     this.anonymousToken = null;
     this.anonymousTokenExpiry = 0;
      debugLog("Anonymous token cache cleared");
   }
 
-  /**
-   * 获取 Token 池大小
-   */
+   /**
+    * Get token pool size
+    */
   getPoolSize(): number {
     return this.tokens.length;
   }
 
-  /**
-   * 检查是否为匿名 Token
-   */
+   /**
+    * Check if it is an anonymous token
+    */
   isAnonymousToken(token: string): boolean {
     return this.anonymousToken === token;
-  }
-}
-
-// 全局 Token 池实例
-const tokenPool = new TokenPool();
+   }
+ }
+ 
+ // Global token pool instance
+ const tokenPool = new TokenPool();
 
 /**
   * Image Processing Tool Class
@@ -779,16 +779,16 @@ class ImageProcessor {
     */
   static async uploadImage(imageUrl: string, token: string): Promise<UploadedFile | null> {
     try {
-       debugLog("Start uploading image: %s", imageUrl.substring(0, 50) + "...");
-
-      // 处理 base64 图像数据
-      let imageData: Uint8Array;
+        debugLog("Start uploading image: %s", imageUrl.substring(0, 50) + "...");
+ 
+       // Process base64 image data
+       let imageData: Uint8Array;
       let filename: string;
       let mimeType: string;
 
-      if (imageUrl.startsWith("data:image/")) {
-        // 解析 base64 图像
-        const matches = imageUrl.match(/^data:image\/(\w+);base64,(.+)$/);
+       if (imageUrl.startsWith("data:image/")) {
+         // Parse base64 image
+         const matches = imageUrl.match(/^data:image\/(\w+);base64,(.+)$/);
         if (!matches) {
           throw new Error("Invalid base64 image format");
         }
@@ -797,9 +797,9 @@ class ImageProcessor {
         filename = `image.${matches[1]}`;
         const base64Data = matches[2];
         imageData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-      } else if (imageUrl.startsWith("http")) {
-        // 下载远程图像
-        const response = await fetch(imageUrl);
+       } else if (imageUrl.startsWith("http")) {
+         // Download remote image
+         const response = await fetch(imageUrl);
         if (!response.ok) {
           throw new Error(`Failed to download image: ${response.statusText}`);
         }
@@ -813,16 +813,16 @@ class ImageProcessor {
         mimeType = contentType;
       } else {
         throw new Error("Unsupported image URL format");
-      }
-
-      // 创建 FormData
-      const formData = new FormData();
+       }
+ 
+       // Create FormData
+       const formData = new FormData();
       const arrayBuffer = imageData.buffer.slice(imageData.byteOffset, imageData.byteOffset + imageData.byteLength) as ArrayBuffer;
       const blob = new Blob([arrayBuffer], { type: mimeType });
-      formData.append("file", blob, filename);
-
-      // 上传到 Z.AI
-      const uploadResponse = await fetch("https://chat.z.ai/api/files", {
+       formData.append("file", blob, filename);
+ 
+       // Upload to Z.AI
+       const uploadResponse = await fetch("https://chat.z.ai/api/files", {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -873,33 +873,33 @@ class ImageProcessor {
 
         for (const part of msg.content) {
           if (part.type === "image_url" && part.image_url?.url) {
-            const imageUrl = part.image_url.url;
-
-            // 上传图像
-            const uploadedFile = await this.uploadImage(imageUrl, token);
-            if (uploadedFile) {
-              if (isVisionModel) {
-                // GLM-4.5V: 保留在消息中，但转换 URL 格式
-                const newUrl = `${uploadedFile.id}_${uploadedFile.filename}`;
+             const imageUrl = part.image_url.url;
+ 
+             // Upload image
+             const uploadedFile = await this.uploadImage(imageUrl, token);
+             if (uploadedFile) {
+               if (isVisionModel) {
+                 // GLM-4.5V: Keep in message, but convert URL format
+                 const newUrl = `${uploadedFile.id}_${uploadedFile.filename}`;
                 newContent.push({
                   type: "image_url",
                   image_url: { url: newUrl }
                 });
                 uploadedFilesMap.set(imageUrl, uploadedFile);
-                 debugLog("GLM-4.5V image URL converted: %s -> %s", imageUrl.substring(0, 50), newUrl);
-              } else {
-                // 非视觉模型: 添加到文件列表，从消息中移除
-                uploadedFiles.push(uploadedFile);
+                  debugLog("GLM-4.5V image URL converted: %s -> %s", imageUrl.substring(0, 50), newUrl);
+               } else {
+                 // Non-vision model: Add to file list, remove from message
+                 uploadedFiles.push(uploadedFile);
                  debugLog("Image added to file list: %s", uploadedFile.id);
               }
             }
           } else if (part.type === "text") {
             newContent.push(part);
           }
-        }
-
-        // 如果只有文本内容，转换为字符串格式
-        if (newContent.length === 1 && newContent[0].type === "text") {
+         }
+ 
+         // If only text content, convert to string format
+         if (newContent.length === 1 && newContent[0].type === "text") {
           processedMsg.content = newContent[0].text;
         } else if (newContent.length > 0) {
           processedMsg.content = newContent;
@@ -1386,41 +1386,41 @@ async function getAnonymousToken(): Promise<string> {
  * @returns { signature: string, timestamp: string }
  */
 async function generateSignature(e: string, t: string, timestamp: number): Promise<{ signature: string, timestamp: string }> {
-  const timestampStr = String(timestamp);
-
-  // 1. 对消息内容进行Base64编码
-  const bodyEncoded = new TextEncoder().encode(t);
-  const bodyBase64 = btoa(String.fromCharCode(...bodyEncoded));
-
-  // 2. 构造待签名字符串
-  const stringToSign = `${e}|${bodyBase64}|${timestampStr}`;
-
-  // 3. 计算5分钟时间窗口
-  const timeWindow = Math.floor(timestamp / (5 * 60 * 1000));
-
-  // 4. 获取签名密钥
-  const secretEnv = Deno.env.get("ZAI_SIGNING_SECRET");
+   const timestampStr = String(timestamp);
+ 
+   // 1. Base64 encode the message content
+   const bodyEncoded = new TextEncoder().encode(t);
+   const bodyBase64 = btoa(String.fromCharCode(...bodyEncoded));
+ 
+   // 2. Construct the string to sign
+   const stringToSign = `${e}|${bodyBase64}|${timestampStr}`;
+ 
+   // 3. Calculate 5-minute time window
+   const timeWindow = Math.floor(timestamp / (5 * 60 * 1000));
+ 
+   // 4. Get signing key
+   const secretEnv = Deno.env.get("ZAI_SIGNING_SECRET");
   let rootKey: Uint8Array;
 
-  if (secretEnv) {
-    // 从环境变量读取密钥
-    if (/^[0-9a-fA-F]+$/.test(secretEnv) && secretEnv.length % 2 === 0) {
-      // HEX 格式
-      rootKey = new Uint8Array(secretEnv.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
-    } else {
-      // UTF-8 格式
-      rootKey = new TextEncoder().encode(secretEnv);
+   if (secretEnv) {
+     // Read key from environment variable
+     if (/^[0-9a-fA-F]+$/.test(secretEnv) && secretEnv.length % 2 === 0) {
+       // HEX format
+       rootKey = new Uint8Array(secretEnv.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+     } else {
+       // UTF-8 format
+       rootKey = new TextEncoder().encode(secretEnv);
     }
-     debugLog("Using environment variable key: %s", secretEnv.substring(0, 10) + "...");
-  } else {
-    // 使用新的默认密钥（与 Python 版本一致）
-    const defaultKeyHex = "6b65792d40404040292929282928283929292d787878782626262525252525";
+      debugLog("Using environment variable key: %s", secretEnv.substring(0, 10) + "...");
+   } else {
+     // Use new default key (consistent with Python version)
+     const defaultKeyHex = "6b65792d40404040292929282928283929292d787878782626262525252525";
     rootKey = new Uint8Array(defaultKeyHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
      debugLog("Using default key");
-  }
-
-  // 5. 第一层 HMAC，生成中间密钥
-  const rootKeyBuffer = rootKey.buffer.slice(rootKey.byteOffset, rootKey.byteOffset + rootKey.byteLength) as ArrayBuffer;
+   }
+ 
+   // 5. First layer HMAC, generate intermediate key
+   const rootKeyBuffer = rootKey.buffer.slice(rootKey.byteOffset, rootKey.byteOffset + rootKey.byteLength) as ArrayBuffer;
   const firstHmacKey = await crypto.subtle.importKey(
     "raw",
     rootKeyBuffer,
@@ -1435,10 +1435,10 @@ async function generateSignature(e: string, t: string, timestamp: number): Promi
   );
   const intermediateKey = Array.from(new Uint8Array(firstSignatureBuffer))
     .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-
-  // 5. 第二层 HMAC，生成最终签名
-  const secondKeyMaterial = new TextEncoder().encode(intermediateKey);
+     .join("");
+ 
+   // 5. Second layer HMAC, generate final signature
+   const secondKeyMaterial = new TextEncoder().encode(intermediateKey);
   const secondHmacKey = await crypto.subtle.importKey(
     "raw",
     secondKeyMaterial,
@@ -1468,19 +1468,19 @@ async function callUpstreamWithHeaders(
   authToken: string
 ): Promise<Response> {
   try {
-     debugLog("Call upstream API: %s", UPSTREAM_URL);
-
-    // 1. 解码JWT获取user_id（多字段支持，与 Python 版本一致）
-    let userId = "unknown";
+      debugLog("Call upstream API: %s", UPSTREAM_URL);
+ 
+     // 1. Decode JWT to get user_id (multi-field support, consistent with Python version)
+     let userId = "unknown";
     try {
       const tokenParts = authToken.split(".");
       if (tokenParts.length === 3) {
         const payload = JSON.parse(
           new TextDecoder().decode(decodeBase64(tokenParts[1]))
-        );
-
-        // 尝试多个可能的 user_id 字段（与 Python 版本一致）
-        for (const key of ["id", "user_id", "uid", "sub"]) {
+         );
+ 
+         // Try multiple possible user_id fields (consistent with Python version)
+         for (const key of ["id", "user_id", "uid", "sub"]) {
           const val = payload[key];
           if (typeof val === "string" || typeof val === "number") {
             const strVal = String(val);
@@ -1494,10 +1494,10 @@ async function callUpstreamWithHeaders(
       }
     } catch (e) {
        debugLog("Failed to parse JWT: %v", e);
-    }
-
-    // 2. 准备签名所需参数
-    const timestamp = Date.now();
+     }
+ 
+     // 2. Prepare parameters needed for signature
+     const timestamp = Date.now();
     const requestId = crypto.randomUUID();
     const lastMessageContent = ImageProcessor.extractLastUserContent(upstreamReq.messages);
 
@@ -1505,10 +1505,10 @@ async function callUpstreamWithHeaders(
        throw new Error("Cannot get user message content for signature");
     }
 
-    const e = `requestId,${requestId},timestamp,${timestamp},user_id,${userId}`;
-
-    // 3. 生成新签名
-    const { signature } = await generateSignature(
+     const e = `requestId,${requestId},timestamp,${timestamp},user_id,${userId}`;
+ 
+     // 3. Generate new signature
+     const { signature } = await generateSignature(
       e,
       lastMessageContent,
       timestamp
@@ -1516,30 +1516,30 @@ async function callUpstreamWithHeaders(
      debugLog("Generate new version signature: %s", signature);
 
     const reqBody = JSON.stringify(upstreamReq);
-     debugLog("Upstream request body: %s", reqBody);
-
-    // 4. 生成智能浏览器头部
-    const smartHeaders = await SmartHeaderGenerator.generateHeaders(refererChatID);
-
-    // 5. 生成完整的浏览器指纹参数
-    const fingerprintParams = BrowserFingerprintGenerator.generateFingerprintParams(
+      debugLog("Upstream request body: %s", reqBody);
+ 
+     // 4. Generate smart browser headers
+     const smartHeaders = await SmartHeaderGenerator.generateHeaders(refererChatID);
+ 
+     // 5. Generate complete browser fingerprint parameters
+     const fingerprintParams = BrowserFingerprintGenerator.generateFingerprintParams(
       timestamp,
       requestId,
       authToken,
       refererChatID
-    );
-
-    // 6. 构建完整的URL参数
-    const allParams = {
+     );
+ 
+     // 6. Build complete URL parameters
+     const allParams = {
       ...fingerprintParams,
       signature_timestamp: timestamp.toString(),
     };
 
     const params = new URLSearchParams(allParams);
-    const fullURL = `${UPSTREAM_URL}?${params.toString()}`;
-
-    // 7. 合并头部
-    const finalHeaders = {
+     const fullURL = `${UPSTREAM_URL}?${params.toString()}`;
+ 
+     // 7. Merge headers
+     const finalHeaders = {
       ...smartHeaders,
       "Authorization": `Bearer ${authToken}`,
       "X-Signature": signature,
@@ -1552,22 +1552,22 @@ async function callUpstreamWithHeaders(
       body: reqBody,
     });
 
-     debugLog("Upstream response status: %d %s", response.status, response.statusText);
-
-    // 8. 成功时标记 Token 为有效
-    tokenPool.markSuccess(authToken);
+      debugLog("Upstream response status: %d %s", response.status, response.statusText);
+ 
+     // 8. Mark token as valid on success
+     tokenPool.markSuccess(authToken);
 
     return response;
-  } catch (error) {
-     debugLog("Failed to call upstream: %v", error);
-
-    // 失败时尝试切换 Token
-    try {
+   } catch (error) {
+      debugLog("Failed to call upstream: %v", error);
+ 
+     // Try switching token on failure
+     try {
       const newToken = await tokenPool.switchToNext();
-      if (newToken) {
-         debugLog("Switch to new token retry: %s", newToken.substring(0, 20));
-        // 递归重试一次，避免无限循环
-        return callUpstreamWithHeaders(upstreamReq, refererChatID, newToken);
+       if (newToken) {
+          debugLog("Switch to new token retry: %s", newToken.substring(0, 20));
+         // Retry recursively once, avoid infinite loop
+         return callUpstreamWithHeaders(upstreamReq, refererChatID, newToken);
       }
     } catch (retryError) {
        debugLog("Token switch retry failed: %v", retryError);
@@ -2266,15 +2266,15 @@ async function handleAnthropicMessages(request: Request): Promise<Response> {
 
   // Get model configuration for the mapped Z.ai model
   const modelConfig = getModelConfig(openaiReq.model);
-  debugLog("📋 Using model config: %s (%s)", modelConfig.name, modelConfig.upstreamId);
-
-  // 使用 Token 池获取 token
-  let authToken: string;
-  try {
-    authToken = await tokenPool.getToken();
-    debugLog("Token 获取成功: %s...", authToken.substring(0, 10));
-  } catch (error) {
-    debugLog("Token 获取失败: %v", error);
+   debugLog("📋 Using model config: %s (%s)", modelConfig.name, modelConfig.upstreamId);
+ 
+   // Get token using token pool
+   let authToken: string;
+   try {
+     authToken = await tokenPool.getToken();
+     debugLog("Token obtained successfully: %s...", authToken.substring(0, 10));
+   } catch (error) {
+     debugLog("Token acquisition failed: %v", error);
     const duration = Date.now() - startTime;
     recordRequestStats(startTime, path, 500);
     addLiveRequest(request.method, path, 500, duration, userAgent);
@@ -2852,26 +2852,26 @@ async function handleChatCompletions(request: Request): Promise<Response> {
 
   // Process and validate messages (multimodal handling)
   const processedMessages = processMessages(req.messages, modelConfig);
-  debugLog("Messages processed, count after processing: %d", processedMessages.length);
-
-  // 检查是否包含多模态内容并使用新的图像处理器
-  const hasMultimodal = ImageProcessor.hasImageContent(req.messages);
+   debugLog("Messages processed, count after processing: %d", processedMessages.length);
+ 
+   // Check if contains multimodal content and use new image processor
+   const hasMultimodal = ImageProcessor.hasImageContent(req.messages);
   let finalMessages = processedMessages;
   let uploadedFiles: UploadedFile[] = [];
 
   if (hasMultimodal) {
-     debugLog("🎯 Detected image content, starting processing, model: %s", modelConfig.name);
-
-    // 检查匿名 Token 限制
-    if (tokenPool.isAnonymousToken(authToken)) {
+      debugLog("🎯 Detected image content, starting processing, model: %s", modelConfig.name);
+ 
+     // Check anonymous token restrictions
+     if (tokenPool.isAnonymousToken(authToken)) {
        debugLog("❌ Anonymous token does not support image processing");
       const duration = Date.now() - startTime;
       recordRequestStats(startTime, path, 400);
       addLiveRequest(request.method, path, 400, duration, userAgent);
-      return new Response("匿名Token不支持图像处理功能，请配置ZAI_TOKEN环境变量", {
-        status: 400,
-        headers,
-      });
+       return new Response("Anonymous token does not support image processing, please configure ZAI_TOKEN environment variable", {
+         status: 400,
+         headers,
+       });
     }
 
     if (!capabilities.vision) {
@@ -2888,9 +2888,9 @@ async function handleChatCompletions(request: Request): Promise<Response> {
     } else {
        debugLog("✅ Using advanced image processor to process image content");
 
-      try {
-        // 使用新的图像处理器
-        const imageProcessResult = await ImageProcessor.processImages(
+       try {
+         // Use new image processor
+         const imageProcessResult = await ImageProcessor.processImages(
           req.messages,
           authToken,
           capabilities.vision
@@ -2950,10 +2950,10 @@ async function handleChatCompletions(request: Request): Promise<Response> {
       tags_generation: false,
     },
     mcp_servers: mcpServers,
-    model_item: {
-      id: modelConfig.upstreamId,
-      name: req.model, // 使用原始请求的模型名
-      owned_by: "openai",
+     model_item: {
+       id: modelConfig.upstreamId,
+       name: req.model, // Use original request model name
+       owned_by: "openai",
       openai: {
         id: modelConfig.upstreamId,
         name: modelConfig.upstreamId,
@@ -3007,20 +3007,20 @@ async function handleChatCompletions(request: Request): Promise<Response> {
       }),
       "{{CURRENT_TIMEZONE}}": "Asia/Shanghai",
       "{{USER_LANGUAGE}}": "zh-CN",
-    },
-    // 添加文件列表（如果有上传的图像）
-    ...(uploadedFiles.length > 0 && !capabilities.vision ? { files: uploadedFiles } : {}),
-    // 添加签名提示
-    signature_prompt: lastUserContent,
-  };
-
-  // 使用 Token 池获取 token
-  let authToken: string;
-  try {
-    authToken = await tokenPool.getToken();
-    debugLog("Token 获取成功: %s...", authToken.substring(0, 10));
-  } catch (error) {
-    debugLog("Token 获取失败: %v", error);
+     },
+     // Add file list (if there are uploaded images)
+     ...(uploadedFiles.length > 0 && !capabilities.vision ? { files: uploadedFiles } : {}),
+     // Add signature prompt
+     signature_prompt: lastUserContent,
+   };
+ 
+   // Get token using token pool
+   let authToken: string;
+   try {
+     authToken = await tokenPool.getToken();
+     debugLog("Token obtained successfully: %s...", authToken.substring(0, 10));
+   } catch (error) {
+     debugLog("Token acquisition failed: %v", error);
     const duration = Date.now() - startTime;
     recordRequestStats(startTime, path, 500);
     addLiveRequest(request.method, path, 500, duration, userAgent);
