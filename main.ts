@@ -248,6 +248,315 @@ interface Model {
 // - "separate": separate reasoning into reasoning_content field
 const THINK_TAGS_MODE = "think"; // options: "strip", "thinking", "think", "raw", "separate"
 
+// MCP 服务器配置
+const MCP_SERVERS: Record<string, MCPServerConfig> = {
+  "deep-web-search": {
+    name: "Deep Web Search",
+    description: "深度网络搜索功能",
+    enabled: true,
+  },
+  "advanced-search": {
+    name: "Advanced Search",
+    description: "高级搜索功能",
+    enabled: true,
+  },
+  "vibe-coding": {
+    name: "Vibe Coding",
+    description: "编程助手功能",
+    enabled: true,
+  },
+  "ppt-maker": {
+    name: "PPT Maker",
+    description: "PPT 生成功能",
+    enabled: true,
+  },
+  "image-search": {
+    name: "Image Search",
+    description: "图像搜索功能",
+    enabled: true,
+  },
+  "deep-research": {
+    name: "Deep Research",
+    description: "深度研究功能",
+    enabled: true,
+  },
+};
+
+/**
+ * 高级模式检测器
+ */
+class ModelCapabilityDetector {
+  /**
+   * 检测模型的高级能力
+   */
+  static detectCapabilities(modelId: string, reasoning?: boolean): ModelCapabilities {
+    const normalizedModelId = modelId.toLowerCase();
+
+    return {
+      thinking: this.isThinkingModel(normalizedModelId, reasoning),
+      search: this.isSearchModel(normalizedModelId),
+      advancedSearch: this.isAdvancedSearchModel(normalizedModelId),
+      vision: this.isVisionModel(normalizedModelId),
+      mcp: this.supportsMCP(normalizedModelId),
+    };
+  }
+
+  private static isThinkingModel(modelId: string, reasoning?: boolean): boolean {
+    return modelId.includes("thinking") ||
+           modelId.includes("4.6") ||
+           reasoning === true ||
+           modelId.includes("0727-360b-api");
+  }
+
+  private static isSearchModel(modelId: string): boolean {
+    return modelId.includes("search") ||
+           modelId.includes("web") ||
+           modelId.includes("browser");
+  }
+
+  private static isAdvancedSearchModel(modelId: string): boolean {
+    return modelId.includes("advanced-search") ||
+           modelId.includes("advanced") ||
+           modelId.includes("pro-search");
+  }
+
+  private static isVisionModel(modelId: string): boolean {
+    return modelId.includes("4.5v") ||
+           modelId.includes("vision") ||
+           modelId.includes("image") ||
+           modelId.includes("multimodal");
+  }
+
+  private static supportsMCP(modelId: string): boolean {
+    // 大部分高级模型都支持 MCP
+    return this.isThinkingModel(modelId) ||
+           this.isSearchModel(modelId) ||
+           this.isAdvancedSearchModel(modelId);
+  }
+
+  /**
+   * 获取模型对应的 MCP 服务器列表
+   */
+  static getMCPServersForModel(capabilities: ModelCapabilities): string[] {
+    const servers: string[] = [];
+
+    if (capabilities.advancedSearch) {
+      servers.push("advanced-search");
+    } else if (capabilities.search) {
+      servers.push("deep-web-search");
+    }
+
+    // 添加隐藏的 MCP 服务器特性
+    if (capabilities.mcp) {
+      // 这些服务器作为隐藏特性添加到 features 中
+      debugLog("模型支持隐藏 MCP 特性: vibe-coding, ppt-maker, image-search, deep-research");
+    }
+
+    return servers;
+  }
+
+  /**
+   * 获取隐藏的 MCP 特性列表
+   */
+  static getHiddenMCPFeatures(): Array<{ type: string; server: string; status: string }> {
+    return [
+      { type: "mcp", server: "vibe-coding", status: "hidden" },
+      { type: "mcp", server: "ppt-maker", status: "hidden" },
+      { type: "mcp", server: "image-search", status: "hidden" },
+      { type: "mcp", server: "deep-research", status: "hidden" }
+    ];
+  }
+}
+
+/**
+ * 智能 Header 生成器
+ * 动态生成真实的浏览器请求头
+ */
+class SmartHeaderGenerator {
+  private static cachedHeaders: Record<string, string> | null = null;
+  private static cacheExpiry: number = 0;
+  private static readonly CACHE_DURATION = 5 * 60 * 1000; // 5分钟缓存
+
+  /**
+   * 生成智能浏览器头部
+   */
+  static async generateHeaders(chatId: string = ""): Promise<Record<string, string>> {
+    // 检查缓存
+    const now = Date.now();
+    if (this.cachedHeaders && this.cacheExpiry > now) {
+      const headers = { ...this.cachedHeaders };
+      if (chatId) {
+        headers["Referer"] = `${ORIGIN_BASE}/c/${chatId}`;
+      }
+      return headers;
+    }
+
+    // 生成新的头部
+    const headers = await this.generateFreshHeaders();
+    this.cachedHeaders = headers;
+    this.cacheExpiry = now + this.CACHE_DURATION;
+
+    debugLog("智能 Header 已生成并缓存");
+    return headers;
+  }
+
+  private static async generateFreshHeaders(): Promise<Record<string, string>> {
+    // 随机选择浏览器配置
+    const browserConfigs = [
+      {
+        ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+        secChUa: '"Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"',
+        version: "140.0.0.0"
+      },
+      {
+        ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
+        secChUa: '"Chromium";v="139", "Not=A?Brand";v="24", "Google Chrome";v="139"',
+        version: "139.0.0.0"
+      },
+      {
+        ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0",
+        secChUa: '"Not_A Brand";v="8", "Chromium";v="126", "Firefox";v="126"',
+        version: "126.0"
+      },
+      {
+        ua: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+        secChUa: '"Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"',
+        version: "140.0.0.0"
+      }
+    ];
+
+    const config = browserConfigs[Math.floor(Math.random() * browserConfigs.length)];
+
+    return {
+      // 基础头部
+      "Accept": "*/*",
+      "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+      "Accept-Encoding": "gzip, deflate, br, zstd",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+      "Content-Type": "application/json",
+      "Pragma": "no-cache",
+      "Sec-Fetch-Dest": "empty",
+      "Sec-Fetch-Mode": "cors",
+      "Sec-Fetch-Site": "same-origin",
+
+      // 浏览器特定头部
+      "User-Agent": config.ua,
+      "Sec-Ch-Ua": config.secChUa,
+      "Sec-Ch-Ua-Mobile": "?0",
+      "Sec-Ch-Ua-Platform": '"Windows"',
+
+      // Z.AI 特定头部
+      "Origin": ORIGIN_BASE,
+      "Referer": `${ORIGIN_BASE}/`,
+      "X-Fe-Version": X_FE_VERSION,
+    };
+  }
+
+  /**
+   * 清除缓存
+   */
+  static clearCache(): void {
+    this.cachedHeaders = null;
+    this.cacheExpiry = 0;
+    debugLog("Header 缓存已清除");
+  }
+}
+
+/**
+ * 浏览器指纹参数生成器
+ */
+class BrowserFingerprintGenerator {
+  /**
+   * 生成完整的浏览器指纹参数
+   */
+  static generateFingerprintParams(
+    timestamp: number,
+    requestId: string,
+    token: string,
+    chatId: string = ""
+  ): Record<string, string> {
+    // 从 JWT token 提取用户 ID（多字段支持，与 Python 版本一致）
+    let userId = "guest";
+    try {
+      const tokenParts = token.split(".");
+      if (tokenParts.length === 3) {
+        const payload = JSON.parse(atob(tokenParts[1]));
+
+        // 尝试多个可能的 user_id 字段（与 Python 版本一致）
+        for (const key of ["id", "user_id", "uid", "sub"]) {
+          const val = payload[key];
+          if (typeof val === "string" || typeof val === "number") {
+            const strVal = String(val);
+            if (strVal.length > 0) {
+              userId = strVal;
+              break;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugLog("解析 JWT token 失败: %v", e);
+    }
+
+    const now = new Date(timestamp);
+    const localTime = now.toISOString().replace('T', ' ').substring(0, 23) + 'Z';
+
+    return {
+      // 基础参数
+      "timestamp": timestamp.toString(),
+      "requestId": requestId,
+      "user_id": userId,
+      "version": "0.0.1",
+      "platform": "web",
+      "token": token,
+
+      // 浏览器环境参数
+      "user_agent": BROWSER_UA,
+      "language": "zh-CN",
+      "languages": "zh-CN,zh",
+      "timezone": "Asia/Shanghai",
+      "cookie_enabled": "true",
+
+      // 屏幕参数
+      "screen_width": "2048",
+      "screen_height": "1152",
+      "screen_resolution": "2048x1152",
+      "viewport_height": "654",
+      "viewport_width": "1038",
+      "viewport_size": "1038x654",
+      "color_depth": "24",
+      "pixel_ratio": "1.25",
+
+      // URL 参数
+      "current_url": chatId ? `${ORIGIN_BASE}/c/${chatId}` : ORIGIN_BASE,
+      "pathname": chatId ? `/c/${chatId}` : "/",
+      "search": "",
+      "hash": "",
+      "host": "chat.z.ai",
+      "hostname": "chat.z.ai",
+      "protocol": "https:",
+      "referrer": "",
+      "title": "Z.ai Chat - Free AI powered by GLM-4.6 & GLM-4.5",
+
+      // 时间参数
+      "timezone_offset": "-480",
+      "local_time": localTime,
+      "utc_time": now.toUTCString(),
+
+      // 设备参数
+      "is_mobile": "false",
+      "is_touch": "false",
+      "max_touch_points": "10",
+      "browser_name": "Chrome",
+      "os_name": "Windows",
+
+      // 签名参数
+      "signature_timestamp": timestamp.toString(),
+    };
+  }
+}
+
 // Spoofed front-end headers (observed from capture)
 // Updated to match capture in example.json
 const X_FE_VERSION = "prod-fe-1.0.95";
@@ -265,6 +574,368 @@ const ANON_TOKEN_ENABLED = true;
 const UPSTREAM_URL = Deno.env.get("UPSTREAM_URL") || "https://chat.z.ai/api/chat/completions";
 const DEFAULT_KEY = Deno.env.get("DEFAULT_KEY") || "sk-your-key";
 const ZAI_TOKEN = Deno.env.get("ZAI_TOKEN") || "";
+
+/**
+ * Token 池管理系统
+ * 支持多个 Token 轮换使用，自动切换失败的 Token
+ */
+interface TokenInfo {
+  token: string;
+  isValid: boolean;
+  lastUsed: number;
+  failureCount: number;
+  isAnonymous?: boolean;
+}
+
+class TokenPool {
+  private tokens: TokenInfo[] = [];
+  private currentIndex: number = 0;
+  private anonymousToken: string | null = null;
+  private anonymousTokenExpiry: number = 0;
+
+  constructor() {
+    this.initializeTokens();
+  }
+
+  /**
+   * 初始化 Token 池
+   */
+  private initializeTokens(): void {
+    // 从环境变量读取多个 Token，用逗号分隔
+    const tokenEnv = Deno.env.get("ZAI_TOKENS");
+    if (tokenEnv) {
+      const tokenList = tokenEnv.split(",").map(t => t.trim()).filter(t => t.length > 0);
+      this.tokens = tokenList.map(token => ({
+        token,
+        isValid: true,
+        lastUsed: 0,
+        failureCount: 0
+      }));
+      debugLog("Token 池已初始化，包含 %d 个 Token", this.tokens.length);
+    } else if (ZAI_TOKEN) {
+      // 兼容单个 Token 配置
+      this.tokens = [{
+        token: ZAI_TOKEN,
+        isValid: true,
+        lastUsed: 0,
+        failureCount: 0
+      }];
+      debugLog("使用单个 Token 配置");
+    } else {
+      debugLog("⚠️ 未配置 Token，将使用匿名 Token");
+    }
+  }
+
+  /**
+   * 获取下一个可用 Token
+   */
+  async getToken(): Promise<string> {
+    // 如果有配置的 Token，尝试使用
+    if (this.tokens.length > 0) {
+      const token = this.getNextValidToken();
+      if (token) {
+        token.lastUsed = Date.now();
+        return token.token;
+      }
+    }
+
+    // 降级到匿名 Token
+    return await this.getAnonymousToken();
+  }
+
+  /**
+   * 获取下一个有效的配置 Token
+   */
+  private getNextValidToken(): TokenInfo | null {
+    const startIndex = this.currentIndex;
+
+    do {
+      const tokenInfo = this.tokens[this.currentIndex];
+      if (tokenInfo.isValid && tokenInfo.failureCount < 3) {
+        return tokenInfo;
+      }
+      this.currentIndex = (this.currentIndex + 1) % this.tokens.length;
+    } while (this.currentIndex !== startIndex);
+
+    return null; // 所有 Token 都不可用
+  }
+
+  /**
+   * 切换到下一个 Token（当前 Token 失败时调用）
+   */
+  async switchToNext(): Promise<string | null> {
+    if (this.tokens.length === 0) return null;
+
+    // 标记当前 Token 为失败
+    const currentToken = this.tokens[this.currentIndex];
+    currentToken.failureCount++;
+    if (currentToken.failureCount >= 3) {
+      currentToken.isValid = false;
+      debugLog("Token 已标记为无效: %s", currentToken.token.substring(0, 20));
+    }
+
+    // 切换到下一个
+    this.currentIndex = (this.currentIndex + 1) % this.tokens.length;
+    const nextToken = this.tokens[this.currentIndex];
+
+    if (nextToken && nextToken.isValid) {
+      debugLog("切换到下一个 Token: %s", nextToken.token.substring(0, 20));
+      nextToken.lastUsed = Date.now();
+      return nextToken.token;
+    }
+
+    return null; // 所有配置 Token 都不可用
+  }
+
+  /**
+   * 重置 Token 状态（成功调用后）
+   */
+  markSuccess(token: string): void {
+    const tokenInfo = this.tokens.find(t => t.token === token);
+    if (tokenInfo) {
+      tokenInfo.failureCount = 0;
+      tokenInfo.isValid = true;
+    }
+  }
+
+  /**
+   * 获取匿名 Token
+   */
+  private async getAnonymousToken(): Promise<string> {
+    const now = Date.now();
+
+    // 检查缓存是否有效
+    if (this.anonymousToken && this.anonymousTokenExpiry > now) {
+      return this.anonymousToken;
+    }
+
+    try {
+      this.anonymousToken = await getAnonymousToken();
+      this.anonymousTokenExpiry = now + (60 * 60 * 1000); // 1小时有效期
+      debugLog("匿名 Token 已获取并缓存");
+      return this.anonymousToken;
+    } catch (error) {
+      debugLog("获取匿名 Token 失败: %v", error);
+      throw error;
+    }
+  }
+
+  /**
+   * 清除匿名 Token 缓存
+   */
+  clearAnonymousTokenCache(): void {
+    this.anonymousToken = null;
+    this.anonymousTokenExpiry = 0;
+    debugLog("匿名 Token 缓存已清除");
+  }
+
+  /**
+   * 获取 Token 池大小
+   */
+  getPoolSize(): number {
+    return this.tokens.length;
+  }
+
+  /**
+   * 检查是否为匿名 Token
+   */
+  isAnonymousToken(token: string): boolean {
+    return this.anonymousToken === token;
+  }
+}
+
+// 全局 Token 池实例
+const tokenPool = new TokenPool();
+
+/**
+ * 图像处理工具类
+ */
+class ImageProcessor {
+  /**
+   * 检测消息中是否包含图像内容
+   */
+  static hasImageContent(messages: Message[]): boolean {
+    for (const msg of messages) {
+      if (msg.role === "user") {
+        const content = msg.content;
+        if (Array.isArray(content)) {
+          for (const part of content) {
+            if (part.type === "image_url" && part.image_url?.url) {
+              return true;
+            }
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * 上传图像到 Z.AI 服务器
+   */
+  static async uploadImage(imageUrl: string, token: string): Promise<UploadedFile | null> {
+    try {
+      debugLog("开始上传图像: %s", imageUrl.substring(0, 50) + "...");
+
+      // 处理 base64 图像数据
+      let imageData: Uint8Array;
+      let filename: string;
+      let mimeType: string;
+
+      if (imageUrl.startsWith("data:image/")) {
+        // 解析 base64 图像
+        const matches = imageUrl.match(/^data:image\/(\w+);base64,(.+)$/);
+        if (!matches) {
+          throw new Error("Invalid base64 image format");
+        }
+
+        mimeType = `image/${matches[1]}`;
+        filename = `image.${matches[1]}`;
+        const base64Data = matches[2];
+        imageData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+      } else if (imageUrl.startsWith("http")) {
+        // 下载远程图像
+        const response = await fetch(imageUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to download image: ${response.statusText}`);
+        }
+
+        const contentType = response.headers.get("content-type") || "image/jpeg";
+        const extension = contentType.split("/")[1] || "jpg";
+        filename = `image.${extension}`;
+
+        const buffer = await response.arrayBuffer();
+        imageData = new Uint8Array(buffer);
+        mimeType = contentType;
+      } else {
+        throw new Error("Unsupported image URL format");
+      }
+
+      // 创建 FormData
+      const formData = new FormData();
+      const arrayBuffer = imageData.buffer.slice(imageData.byteOffset, imageData.byteOffset + imageData.byteLength) as ArrayBuffer;
+      const blob = new Blob([arrayBuffer], { type: mimeType });
+      formData.append("file", blob, filename);
+
+      // 上传到 Z.AI
+      const uploadResponse = await fetch("https://chat.z.ai/api/files", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Origin": ORIGIN_BASE,
+          "Referer": `${ORIGIN_BASE}/`,
+        },
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error(`Upload failed: ${uploadResponse.statusText}`);
+      }
+
+      const uploadResult = await uploadResponse.json() as any;
+      debugLog("图像上传成功: %s", uploadResult.id);
+
+      return {
+        id: uploadResult.id,
+        filename: uploadResult.filename || filename,
+        size: imageData.length,
+        type: mimeType,
+        url: uploadResult.url,
+      };
+    } catch (error) {
+      debugLog("图像上传失败: %v", error);
+      return null;
+    }
+  }
+
+  /**
+   * 处理消息中的图像内容，返回处理后的消息和上传的文件列表
+   */
+  static async processImages(
+    messages: Message[],
+    token: string,
+    isVisionModel: boolean = false
+  ): Promise<{ processedMessages: Message[], uploadedFiles: UploadedFile[], uploadedFilesMap: Map<string, UploadedFile> }> {
+    const processedMessages: Message[] = [];
+    const uploadedFiles: UploadedFile[] = [];
+    const uploadedFilesMap = new Map<string, UploadedFile>();
+
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      const processedMsg: Message = { ...msg };
+
+      if (msg.role === "user" && Array.isArray(msg.content)) {
+        const newContent: any[] = [];
+
+        for (const part of msg.content) {
+          if (part.type === "image_url" && part.image_url?.url) {
+            const imageUrl = part.image_url.url;
+
+            // 上传图像
+            const uploadedFile = await this.uploadImage(imageUrl, token);
+            if (uploadedFile) {
+              if (isVisionModel) {
+                // GLM-4.5V: 保留在消息中，但转换 URL 格式
+                const newUrl = `${uploadedFile.id}_${uploadedFile.filename}`;
+                newContent.push({
+                  type: "image_url",
+                  image_url: { url: newUrl }
+                });
+                uploadedFilesMap.set(imageUrl, uploadedFile);
+                debugLog("GLM-4.5V 图像 URL 已转换: %s -> %s", imageUrl.substring(0, 50), newUrl);
+              } else {
+                // 非视觉模型: 添加到文件列表，从消息中移除
+                uploadedFiles.push(uploadedFile);
+                debugLog("图像已添加到文件列表: %s", uploadedFile.id);
+              }
+            }
+          } else if (part.type === "text") {
+            newContent.push(part);
+          }
+        }
+
+        // 如果只有文本内容，转换为字符串格式
+        if (newContent.length === 1 && newContent[0].type === "text") {
+          processedMsg.content = newContent[0].text;
+        } else if (newContent.length > 0) {
+          processedMsg.content = newContent;
+        } else {
+          processedMsg.content = "";
+        }
+      }
+
+      processedMessages.push(processedMsg);
+    }
+
+    return {
+      processedMessages,
+      uploadedFiles,
+      uploadedFilesMap
+    };
+  }
+
+  /**
+   * 提取最后一条用户消息的文本内容
+   */
+  static extractLastUserContent(messages: Message[]): string {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
+      if (msg.role === "user") {
+        const content = msg.content;
+        if (typeof content === "string") {
+          return content;
+        } else if (Array.isArray(content)) {
+          for (const part of content) {
+            if (part.type === "text" && part.text) {
+              return part.text;
+            }
+          }
+        }
+      }
+    }
+    return "";
+  }
+}
 
 /**
  * Supported model configuration
@@ -717,7 +1388,7 @@ async function getAnonymousToken(): Promise<string> {
 async function generateSignature(e: string, t: string, timestamp: number): Promise<{ signature: string, timestamp: string }> {
   const timestampStr = String(timestamp);
 
-  // 1. 对消息内容进行Base64编码 (Fix by @sarices)
+  // 1. 对消息内容进行Base64编码
   const bodyEncoded = new TextEncoder().encode(t);
   const bodyBase64 = btoa(String.fromCharCode(...bodyEncoded));
 
@@ -727,11 +1398,32 @@ async function generateSignature(e: string, t: string, timestamp: number): Promi
   // 3. 计算5分钟时间窗口
   const timeWindow = Math.floor(timestamp / (5 * 60 * 1000));
 
-  // 4. 第一层 HMAC，生成中间密钥
-  const firstKeyMaterial = new TextEncoder().encode("junjie");
+  // 4. 获取签名密钥
+  const secretEnv = Deno.env.get("ZAI_SIGNING_SECRET");
+  let rootKey: Uint8Array;
+
+  if (secretEnv) {
+    // 从环境变量读取密钥
+    if (/^[0-9a-fA-F]+$/.test(secretEnv) && secretEnv.length % 2 === 0) {
+      // HEX 格式
+      rootKey = new Uint8Array(secretEnv.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+    } else {
+      // UTF-8 格式
+      rootKey = new TextEncoder().encode(secretEnv);
+    }
+    debugLog("使用环境变量密钥: %s", secretEnv.substring(0, 10) + "...");
+  } else {
+    // 使用新的默认密钥（与 Python 版本一致）
+    const defaultKeyHex = "6b65792d40404040292929282928283929292d787878782626262525252525";
+    rootKey = new Uint8Array(defaultKeyHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+    debugLog("使用默认密钥");
+  }
+
+  // 5. 第一层 HMAC，生成中间密钥
+  const rootKeyBuffer = rootKey.buffer.slice(rootKey.byteOffset, rootKey.byteOffset + rootKey.byteLength) as ArrayBuffer;
   const firstHmacKey = await crypto.subtle.importKey(
     "raw",
-    firstKeyMaterial,
+    rootKeyBuffer,
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"]
@@ -742,8 +1434,8 @@ async function generateSignature(e: string, t: string, timestamp: number): Promi
     new TextEncoder().encode(String(timeWindow))
   );
   const intermediateKey = Array.from(new Uint8Array(firstSignatureBuffer))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 
   // 5. 第二层 HMAC，生成最终签名
   const secondKeyMaterial = new TextEncoder().encode(intermediateKey);
@@ -760,13 +1452,13 @@ async function generateSignature(e: string, t: string, timestamp: number): Promi
     new TextEncoder().encode(stringToSign)
   );
   const signature = Array.from(new Uint8Array(finalSignatureBuffer))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 
-  debugLog("New signature generated successfully: %s", signature);
+  debugLog("新版签名生成成功: %s", signature);
   return {
-      signature,
-      timestamp: timestampStr
+    signature,
+    timestamp: timestampStr,
   };
 }
 
@@ -776,17 +1468,114 @@ async function callUpstreamWithHeaders(
   authToken: string
 ): Promise<Response> {
   try {
-    debugLog("Calling upstream API: %s", UPSTREAM_URL);
+    debugLog("调用上游API: %s", UPSTREAM_URL);
 
-    // 1. Decode JWT to get user_id
+    // 1. 解码JWT获取user_id（多字段支持，与 Python 版本一致）
     let userId = "unknown";
     try {
-      const tokenParts = authToken.split('.');
+      const tokenParts = authToken.split(".");
       if (tokenParts.length === 3) {
-        const payload = JSON.parse(new TextDecoder().decode(decodeBase64(tokenParts[1])));
-        userId = payload.id || userId;
-        debugLog("Parsed user_id from JWT: %s", userId);
+        const payload = JSON.parse(
+          new TextDecoder().decode(decodeBase64(tokenParts[1]))
+        );
+
+        // 尝试多个可能的 user_id 字段（与 Python 版本一致）
+        for (const key of ["id", "user_id", "uid", "sub"]) {
+          const val = payload[key];
+          if (typeof val === "string" || typeof val === "number") {
+            const strVal = String(val);
+            if (strVal.length > 0) {
+              userId = strVal;
+              debugLog("从JWT解析到 user_id: %s (字段: %s)", userId, key);
+              break;
+            }
+          }
+        }
       }
+    } catch (e) {
+      debugLog("解析JWT失败: %v", e);
+    }
+
+    // 2. 准备签名所需参数
+    const timestamp = Date.now();
+    const requestId = crypto.randomUUID();
+    const lastMessageContent = ImageProcessor.extractLastUserContent(upstreamReq.messages);
+
+    if (!lastMessageContent) {
+      throw new Error("无法获取用于签名的用户消息内容");
+    }
+
+    const e = `requestId,${requestId},timestamp,${timestamp},user_id,${userId}`;
+
+    // 3. 生成新签名
+    const { signature } = await generateSignature(
+      e,
+      lastMessageContent,
+      timestamp
+    );
+    debugLog("生成新版签名: %s", signature);
+
+    const reqBody = JSON.stringify(upstreamReq);
+    debugLog("上游请求体: %s", reqBody);
+
+    // 4. 生成智能浏览器头部
+    const smartHeaders = await SmartHeaderGenerator.generateHeaders(refererChatID);
+
+    // 5. 生成完整的浏览器指纹参数
+    const fingerprintParams = BrowserFingerprintGenerator.generateFingerprintParams(
+      timestamp,
+      requestId,
+      authToken,
+      refererChatID
+    );
+
+    // 6. 构建完整的URL参数
+    const allParams = {
+      ...fingerprintParams,
+      signature_timestamp: timestamp.toString(),
+    };
+
+    const params = new URLSearchParams(allParams);
+    const fullURL = `${UPSTREAM_URL}?${params.toString()}`;
+
+    // 7. 合并头部
+    const finalHeaders = {
+      ...smartHeaders,
+      "Authorization": `Bearer ${authToken}`,
+      "X-Signature": signature,
+      "Accept": "application/json, text/event-stream",
+    };
+
+    const response = await fetch(fullURL, {
+      method: "POST",
+      headers: finalHeaders,
+      body: reqBody,
+    });
+
+    debugLog("上游响应状态: %d %s", response.status, response.statusText);
+
+    // 8. 成功时标记 Token 为有效
+    tokenPool.markSuccess(authToken);
+
+    return response;
+  } catch (error) {
+    debugLog("调用上游失败: %v", error);
+
+    // 失败时尝试切换 Token
+    try {
+      const newToken = await tokenPool.switchToNext();
+      if (newToken) {
+        debugLog("切换到新 Token 重试: %s", newToken.substring(0, 20));
+        // 递归重试一次，避免无限循环
+        return callUpstreamWithHeaders(upstreamReq, refererChatID, newToken);
+      }
+    } catch (retryError) {
+      debugLog("Token 切换重试失败: %v", retryError);
+    }
+
+    throw error;
+  }
+}
     } catch (e) {
       debugLog("Failed to parse JWT: %v", e);
     }
@@ -1537,16 +2326,20 @@ async function handleAnthropicMessages(request: Request): Promise<Response> {
   const modelConfig = getModelConfig(openaiReq.model);
   debugLog("📋 Using model config: %s (%s)", modelConfig.name, modelConfig.upstreamId);
 
-  // Choose token for this conversation
-  let authToken = ZAI_TOKEN;
-  if (ANON_TOKEN_ENABLED) {
-    try {
-      const anonToken = await getAnonymousToken();
-      authToken = anonToken;
-      debugLog("Anonymous token obtained for Anthropic request: %s...", anonToken.substring(0, 10));
-    } catch (error) {
-      debugLog("Failed to obtain anonymous token for Anthropic; falling back to configured token: %v", error);
-    }
+  // 使用 Token 池获取 token
+  let authToken: string;
+  try {
+    authToken = await tokenPool.getToken();
+    debugLog("Token 获取成功: %s...", authToken.substring(0, 10));
+  } catch (error) {
+    debugLog("Token 获取失败: %v", error);
+    const duration = Date.now() - startTime;
+    recordRequestStats(startTime, path, 500);
+    addLiveRequest(request.method, path, 500, duration, userAgent);
+    return new Response("Failed to get authentication token", {
+      status: 500,
+      headers,
+    });
   }
 
   // Generate session IDs
@@ -2075,6 +2868,15 @@ async function handleChatCompletions(request: Request): Promise<Response> {
   const modelConfig = getModelConfig(req.model);
   debugLog("Request parsed - model: %s (%s), stream: %v, messages: %d", req.model, modelConfig.name, req.stream, req.messages.length);
 
+  // 检测模型高级能力
+  const capabilities = ModelCapabilityDetector.detectCapabilities(
+    req.model,
+    req.reasoning
+  );
+  debugLog("模型能力检测: 思考=%s, 搜索=%s, 高级搜索=%s, 视觉=%s, MCP=%s",
+    capabilities.thinking, capabilities.search, capabilities.advancedSearch,
+    capabilities.vision, capabilities.mcp);
+
   // Cherry Studio debug: inspect each message
   debugLog("🔍 Cherry Studio debug - inspect raw messages:");
   for (let i = 0; i < req.messages.length; i++) {
@@ -2110,72 +2912,114 @@ async function handleChatCompletions(request: Request): Promise<Response> {
   const processedMessages = processMessages(req.messages, modelConfig);
   debugLog("Messages processed, count after processing: %d", processedMessages.length);
 
-  const hasMultimodal = processedMessages.some(msg =>
-    Array.isArray(msg.content) &&
-    msg.content.some(block =>
-      ['image_url', 'video_url', 'document_url', 'audio_url'].includes(block.type)
-    )
-  );
+  // 检查是否包含多模态内容并使用新的图像处理器
+  const hasMultimodal = ImageProcessor.hasImageContent(req.messages);
+  let finalMessages = processedMessages;
+  let uploadedFiles: UploadedFile[] = [];
 
   if (hasMultimodal) {
-    debugLog("🎯 Detected full multimodal request, model: %s", modelConfig.name);
-    if (!modelConfig.capabilities.vision) {
-      debugLog("❌ Severe error: model doesn't support multimodal but received media content!");
-      debugLog("💡 Cherry Studio users: ensure you selected 'glm-4.5v' instead of 'GLM-4.5'");
-      debugLog("🔧 Model mapping: %s → %s (vision: %s)",
-        req.model, modelConfig.upstreamId, modelConfig.capabilities.vision);
-    } else {
-      debugLog("✅ GLM-4.5V supports full multimodal understanding: images, video, documents, audio");
+    debugLog("🎯 检测到图像内容，开始处理，模型: %s", modelConfig.name);
 
-      if (!ZAI_TOKEN || ZAI_TOKEN.trim() === "") {
-        debugLog("⚠️ Important warning: using anonymous token for multimodal requests");
-        debugLog("💡 Z.ai anonymous tokens may not support image/video/document processing");
-        debugLog("🔧 Fix: set ZAI_TOKEN environment variable to an official API token");
-        debugLog("📋 If requests fail, token permissions are likely the cause");
-      } else {
-        debugLog("✅ Using official API token; full multimodal features supported");
+    // 检查匿名 Token 限制
+    if (tokenPool.isAnonymousToken(authToken)) {
+      debugLog("❌ 匿名 Token 不支持图像处理功能");
+      const duration = Date.now() - startTime;
+      recordRequestStats(startTime, path, 400);
+      addLiveRequest(request.method, path, 400, duration, userAgent);
+      return new Response("匿名Token不支持图像处理功能，请配置ZAI_TOKEN环境变量", {
+        status: 400,
+        headers,
+      });
+    }
+
+    if (!capabilities.vision) {
+      debugLog("❌ 严重错误: 模型不支持多模态，但收到了图像内容！");
+      debugLog(
+        "💡 Cherry Studio用户请检查: 确认选择了 'glm-4.5v' 而不是 'GLM-4.5'"
+      );
+      debugLog(
+        "🔧 模型映射状态: %s → %s (vision: %s)",
+        req.model,
+        modelConfig.upstreamId,
+        capabilities.vision
+      );
+    } else {
+      debugLog("✅ 使用高级图像处理器处理图像内容");
+
+      try {
+        // 使用新的图像处理器
+        const imageProcessResult = await ImageProcessor.processImages(
+          req.messages,
+          authToken,
+          capabilities.vision
+        );
+
+        finalMessages = imageProcessResult.processedMessages;
+        uploadedFiles = imageProcessResult.uploadedFiles;
+
+        debugLog("图像处理完成: 处理后消息数=%d, 上传文件数=%d",
+          finalMessages.length, uploadedFiles.length);
+
+      } catch (error) {
+        debugLog("图像处理失败: %v", error);
+        const duration = Date.now() - startTime;
+        recordRequestStats(startTime, path, 500);
+        addLiveRequest(request.method, path, 500, duration, userAgent);
+        return new Response("图像处理失败", {
+          status: 500,
+          headers,
+        });
       }
     }
-  } else if (modelConfig.capabilities.vision && modelConfig.id === 'glm-4.5v') {
-    debugLog("ℹ️ Using GLM-4.5V model but no media detected; processing text only");
+  } else if (capabilities.vision && modelConfig.id === "glm-4.5v") {
+    debugLog("ℹ️ 使用GLM-4.5V模型但未检测到图像数据，仅处理文本内容");
   }
 
   // Generate session IDs (prefer client-provided values if present in incoming body)
   const chatID = (typeof incomingBody === "object" && incomingBody?.chat_id) ? String(incomingBody.chat_id) : `${Date.now()}-${Math.floor(Date.now() / 1000)}`;
   const msgID = (typeof incomingBody === "object" && incomingBody?.id) ? String(incomingBody.id) : Date.now().toString();
 
-  // Build upstream request
+  // 获取模型对应的 MCP 服务器列表
+  const mcpServers = ModelCapabilityDetector.getMCPServersForModel(capabilities);
+  const hiddenMcpFeatures = ModelCapabilityDetector.getHiddenMCPFeatures();
+
+  // 提取用户最后消息内容（用于签名）
+  const lastUserContent = ImageProcessor.extractLastUserContent(req.messages);
+
+  // 构造上游请求（增强版）
   const upstreamReq: UpstreamRequest = {
-    stream: true, // always fetch upstream as stream
+    stream: true, // 总是使用流式从上游获取
     chat_id: chatID,
     id: msgID,
     model: modelConfig.upstreamId,
-    messages: processedMessages,
+    messages: finalMessages,
     params: modelConfig.defaultParams,
     features: {
-      enable_thinking: parseFeatureHeader(thinkingHeader, modelConfig.capabilities.thinking),
-      image_generation: parseFeatureHeader(imageGenerationHeader, false),
-      web_search: parseFeatureHeader(webSearchHeader, false),
-      auto_web_search: parseFeatureHeader(autoWebSearchHeader, false),
-      preview_mode: modelConfig.capabilities.vision
+      image_generation: false,
+      web_search: capabilities.search || capabilities.advancedSearch,
+      auto_web_search: capabilities.search || capabilities.advancedSearch,
+      preview_mode: capabilities.search || capabilities.advancedSearch,
+      flags: [],
+      features: hiddenMcpFeatures,
+      enable_thinking: capabilities.thinking,
     },
     background_tasks: {
-      title_generation: parseFeatureHeader(titleGenerationHeader, false),
-      tags_generation: parseFeatureHeader(tagsGenerationHeader, false)
+      title_generation: false,
+      tags_generation: false,
     },
-    mcp_servers: (parseFeatureHeader(mcpHeader, modelConfig.capabilities.mcp) && modelConfig.capabilities.mcp) ? [] : undefined,
+    mcp_servers: mcpServers,
     model_item: {
       id: modelConfig.upstreamId,
-      name: modelConfig.name,
+      name: req.model, // 使用原始请求的模型名
       owned_by: "openai",
       openai: {
         id: modelConfig.upstreamId,
         name: modelConfig.upstreamId,
         owned_by: "openai",
         openai: {
-          id: modelConfig.upstreamId
+          id: modelConfig.upstreamId,
         },
-        urlIdx: 1
+        urlIdx: 1,
       },
       urlIdx: 1,
       info: {
@@ -2186,46 +3030,62 @@ async function handleChatCompletions(request: Request): Promise<Response> {
         params: modelConfig.defaultParams,
         meta: {
           profile_image_url: "/static/favicon.png",
-          description: modelConfig.capabilities.vision ? "Advanced visual understanding and analysis" : "Most advanced model, proficient in coding and tool use",
+          description: capabilities.vision
+            ? "Advanced visual understanding and analysis"
+            : capabilities.thinking
+            ? "Advanced reasoning and thinking model"
+            : capabilities.search
+            ? "Web search enhanced model"
+            : "Most advanced model, proficient in coding and tool use",
           capabilities: {
-            vision: modelConfig.capabilities.vision,
+            vision: capabilities.vision,
             citations: false,
-            preview_mode: modelConfig.capabilities.vision,
-            web_search: false,
+            preview_mode: capabilities.search || capabilities.advancedSearch,
+            web_search: capabilities.search || capabilities.advancedSearch,
             language_detection: false,
             restore_n_source: false,
-            mcp: modelConfig.capabilities.mcp,
-            file_qa: modelConfig.capabilities.mcp,
+            mcp: capabilities.mcp,
+            file_qa: capabilities.mcp,
             returnFc: true,
-            returnThink: modelConfig.capabilities.thinking,
-            think: modelConfig.capabilities.thinking
-          }
-        }
-      }
+            returnThink: capabilities.thinking,
+            think: capabilities.thinking,
+          },
+        },
+      },
     },
     tool_servers: [],
     variables: {
       "{{USER_NAME}}": `Guest-${Date.now()}`,
       "{{USER_LOCATION}}": "Unknown",
-      "{{CURRENT_DATETIME}}": new Date().toLocaleString('en-US'),
-      "{{CURRENT_DATE}}": new Date().toLocaleDateString('en-US'),
-      "{{CURRENT_TIME}}": new Date().toLocaleTimeString('en-US'),
-      "{{CURRENT_WEEKDAY}}": new Date().toLocaleDateString('en-US', { weekday: 'long' }),
-      "{{CURRENT_TIMEZONE}}": "UTC",
-      "{{USER_LANGUAGE}}": "en-US"
-    }
+      "{{CURRENT_DATETIME}}": new Date().toLocaleString("zh-CN"),
+      "{{CURRENT_DATE}}": new Date().toLocaleDateString("zh-CN"),
+      "{{CURRENT_TIME}}": new Date().toLocaleTimeString("zh-CN"),
+      "{{CURRENT_WEEKDAY}}": new Date().toLocaleDateString("zh-CN", {
+        weekday: "long",
+      }),
+      "{{CURRENT_TIMEZONE}}": "Asia/Shanghai",
+      "{{USER_LANGUAGE}}": "zh-CN",
+    },
+    // 添加文件列表（如果有上传的图像）
+    ...(uploadedFiles.length > 0 && !capabilities.vision ? { files: uploadedFiles } : {}),
+    // 添加签名提示
+    signature_prompt: lastUserContent,
   };
 
-  // Choose token for this conversation
-  let authToken = ZAI_TOKEN;
-  if (ANON_TOKEN_ENABLED) {
-    try {
-      const anonToken = await getAnonymousToken();
-      authToken = anonToken;
-      debugLog("Anonymous token obtained: %s...", anonToken.substring(0, 10));
-    } catch (error) {
-      debugLog("Failed to obtain anonymous token; falling back to configured token: %v", error);
-    }
+  // 使用 Token 池获取 token
+  let authToken: string;
+  try {
+    authToken = await tokenPool.getToken();
+    debugLog("Token 获取成功: %s...", authToken.substring(0, 10));
+  } catch (error) {
+    debugLog("Token 获取失败: %v", error);
+    const duration = Date.now() - startTime;
+    recordRequestStats(startTime, path, 500);
+    addLiveRequest(request.method, path, 500, duration, userAgent);
+    return new Response("Failed to get authentication token", {
+      status: 500,
+      headers,
+    });
   }
 
   // Call upstream
