@@ -2749,20 +2749,24 @@ async function handleChatCompletions(request: Request): Promise<Response> {
     return new Response(null, { status: 200, headers });
   }
 
-  // API key validation
-  const authHeader = request.headers.get("Authorization");
-  if (!validateApiKey(authHeader)) {
-    debugLog("Missing or invalid Authorization header");
-    const duration = Date.now() - startTime;
-    recordRequestStats(startTime, path, 401);
-    addLiveRequest(request.method, path, 401, duration, userAgent);
-    return new Response("Missing or invalid Authorization header", {
-      status: 401,
-      headers
-    });
-  }
+   // API key validation
+   const authHeader = request.headers.get("Authorization");
+   if (authHeader && !validateApiKey(authHeader)) {
+     debugLog("Invalid Authorization header");
+     const duration = Date.now() - startTime;
+     recordRequestStats(startTime, path, 401);
+     addLiveRequest(request.method, path, 401, duration, userAgent);
+     return new Response("Invalid Authorization header", {
+       status: 401,
+       headers
+     });
+   }
 
-  debugLog("API key validated");
+   if (!authHeader) {
+     debugLog("No Authorization header, using anonymous token");
+   } else {
+     debugLog("API key validated");
+   }
 
   // Read request body
   let body: string;
