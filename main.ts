@@ -249,38 +249,38 @@ interface Model {
 const THINK_TAGS_MODE = "think"; // options: "strip", "thinking", "think", "raw", "separate"
 
 // MCP 服务器配置
-const MCP_SERVERS: Record<string, MCPServerConfig> = {
-  "deep-web-search": {
-    name: "Deep Web Search",
-    description: "深度网络搜索功能",
-    enabled: true,
-  },
-  "advanced-search": {
-    name: "Advanced Search",
-    description: "高级搜索功能",
-    enabled: true,
-  },
-  "vibe-coding": {
-    name: "Vibe Coding",
-    description: "编程助手功能",
-    enabled: true,
-  },
-  "ppt-maker": {
-    name: "PPT Maker",
-    description: "PPT 生成功能",
-    enabled: true,
-  },
-  "image-search": {
-    name: "Image Search",
-    description: "图像搜索功能",
-    enabled: true,
-  },
-  "deep-research": {
-    name: "Deep Research",
-    description: "深度研究功能",
-    enabled: true,
-  },
-};
+ const MCP_SERVERS: Record<string, MCPServerConfig> = {
+   "deep-web-search": {
+     name: "Deep Web Search",
+     description: "Deep Web Search Function",
+     enabled: true,
+   },
+   "advanced-search": {
+     name: "Advanced Search",
+     description: "Advanced Search Function",
+     enabled: true,
+   },
+   "vibe-coding": {
+     name: "Vibe Coding",
+     description: "Programming Assistant Function",
+     enabled: true,
+   },
+   "ppt-maker": {
+     name: "PPT Maker",
+     description: "PPT Generation Function",
+     enabled: true,
+   },
+   "image-search": {
+     name: "Image Search",
+     description: "Image Search Function",
+     enabled: true,
+   },
+   "deep-research": {
+     name: "Deep Research",
+     description: "Deep Research Function",
+     enabled: true,
+   },
+ };
 
 /**
  * 高级模式检测器
@@ -327,12 +327,12 @@ class ModelCapabilityDetector {
            modelId.includes("multimodal");
   }
 
-  private static supportsMCP(modelId: string): boolean {
-    // 大部分高级模型都支持 MCP
-    return this.isThinkingModel(modelId) ||
-           this.isSearchModel(modelId) ||
-           this.isAdvancedSearchModel(modelId);
-  }
+   private static supportsMCP(modelId: string): boolean {
+     // Most advanced models support MCP
+     return this.isThinkingModel(modelId) ||
+            this.isSearchModel(modelId) ||
+            this.isAdvancedSearchModel(modelId);
+   }
 
   /**
    * 获取模型对应的 MCP 服务器列表
@@ -346,11 +346,11 @@ class ModelCapabilityDetector {
       servers.push("deep-web-search");
     }
 
-    // 添加隐藏的 MCP 服务器特性
-    if (capabilities.mcp) {
-      // 这些服务器作为隐藏特性添加到 features 中
-      debugLog("模型支持隐藏 MCP 特性: vibe-coding, ppt-maker, image-search, deep-research");
-    }
+     // Add hidden MCP server features
+     if (capabilities.mcp) {
+       // These servers are added as hidden features to features
+       debugLog("Model supports hidden MCP features: vibe-coding, ppt-maker, image-search, deep-research");
+     }
 
     return servers;
   }
@@ -396,8 +396,8 @@ class SmartHeaderGenerator {
     this.cachedHeaders = headers;
     this.cacheExpiry = now + this.CACHE_DURATION;
 
-    debugLog("智能 Header 已生成并缓存");
-    return headers;
+     debugLog("Smart Header has been generated and cached");
+     return headers;
   }
 
   private static async generateFreshHeaders(): Promise<Record<string, string>> {
@@ -459,7 +459,7 @@ class SmartHeaderGenerator {
   static clearCache(): void {
     this.cachedHeaders = null;
     this.cacheExpiry = 0;
-    debugLog("Header 缓存已清除");
+     debugLog("Header cache cleared");
   }
 }
 
@@ -626,7 +626,7 @@ class TokenPool {
       }];
       debugLog("使用单个 Token 配置");
     } else {
-      debugLog("⚠️ 未配置 Token，将使用匿名 Token");
+       debugLog("⚠️ No token configured, will use anonymous token");
     }
   }
 
@@ -675,7 +675,7 @@ class TokenPool {
     currentToken.failureCount++;
     if (currentToken.failureCount >= 3) {
       currentToken.isValid = false;
-      debugLog("Token 已标记为无效: %s", currentToken.token.substring(0, 20));
+       debugLog("Token marked as invalid: %s", currentToken.token.substring(0, 20));
     }
 
     // 切换到下一个
@@ -683,7 +683,7 @@ class TokenPool {
     const nextToken = this.tokens[this.currentIndex];
 
     if (nextToken && nextToken.isValid) {
-      debugLog("切换到下一个 Token: %s", nextToken.token.substring(0, 20));
+       debugLog("Switch to next token: %s", nextToken.token.substring(0, 20));
       nextToken.lastUsed = Date.now();
       return nextToken.token;
     }
@@ -716,7 +716,7 @@ class TokenPool {
     try {
       this.anonymousToken = await getAnonymousToken();
       this.anonymousTokenExpiry = now + (60 * 60 * 1000); // 1小时有效期
-      debugLog("匿名 Token 已获取并缓存");
+       debugLog("Anonymous token obtained and cached");
       return this.anonymousToken;
     } catch (error) {
       debugLog("获取匿名 Token 失败: %v", error);
@@ -730,7 +730,7 @@ class TokenPool {
   clearAnonymousTokenCache(): void {
     this.anonymousToken = null;
     this.anonymousTokenExpiry = 0;
-    debugLog("匿名 Token 缓存已清除");
+     debugLog("Anonymous token cache cleared");
   }
 
   /**
@@ -779,7 +779,7 @@ class ImageProcessor {
    */
   static async uploadImage(imageUrl: string, token: string): Promise<UploadedFile | null> {
     try {
-      debugLog("开始上传图像: %s", imageUrl.substring(0, 50) + "...");
+       debugLog("Start uploading image: %s", imageUrl.substring(0, 50) + "...");
 
       // 处理 base64 图像数据
       let imageData: Uint8Array;
@@ -837,7 +837,7 @@ class ImageProcessor {
       }
 
       const uploadResult = await uploadResponse.json() as any;
-      debugLog("图像上传成功: %s", uploadResult.id);
+       debugLog("Image upload successful: %s", uploadResult.id);
 
       return {
         id: uploadResult.id,
@@ -847,7 +847,7 @@ class ImageProcessor {
         url: uploadResult.url,
       };
     } catch (error) {
-      debugLog("图像上传失败: %v", error);
+       debugLog("Image upload failed: %v", error);
       return null;
     }
   }
@@ -886,11 +886,11 @@ class ImageProcessor {
                   image_url: { url: newUrl }
                 });
                 uploadedFilesMap.set(imageUrl, uploadedFile);
-                debugLog("GLM-4.5V 图像 URL 已转换: %s -> %s", imageUrl.substring(0, 50), newUrl);
+                 debugLog("GLM-4.5V image URL converted: %s -> %s", imageUrl.substring(0, 50), newUrl);
               } else {
                 // 非视觉模型: 添加到文件列表，从消息中移除
                 uploadedFiles.push(uploadedFile);
-                debugLog("图像已添加到文件列表: %s", uploadedFile.id);
+                 debugLog("Image added to file list: %s", uploadedFile.id);
               }
             }
           } else if (part.type === "text") {
@@ -1411,12 +1411,12 @@ async function generateSignature(e: string, t: string, timestamp: number): Promi
       // UTF-8 格式
       rootKey = new TextEncoder().encode(secretEnv);
     }
-    debugLog("使用环境变量密钥: %s", secretEnv.substring(0, 10) + "...");
+     debugLog("Using environment variable key: %s", secretEnv.substring(0, 10) + "...");
   } else {
     // 使用新的默认密钥（与 Python 版本一致）
     const defaultKeyHex = "6b65792d40404040292929282928283929292d787878782626262525252525";
     rootKey = new Uint8Array(defaultKeyHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
-    debugLog("使用默认密钥");
+     debugLog("Using default key");
   }
 
   // 5. 第一层 HMAC，生成中间密钥
@@ -1455,7 +1455,7 @@ async function generateSignature(e: string, t: string, timestamp: number): Promi
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 
-  debugLog("新版签名生成成功: %s", signature);
+   debugLog("New version signature generated successfully: %s", signature);
   return {
     signature,
     timestamp: timestampStr,
@@ -1468,7 +1468,7 @@ async function callUpstreamWithHeaders(
   authToken: string
 ): Promise<Response> {
   try {
-    debugLog("调用上游API: %s", UPSTREAM_URL);
+     debugLog("Call upstream API: %s", UPSTREAM_URL);
 
     // 1. 解码JWT获取user_id（多字段支持，与 Python 版本一致）
     let userId = "unknown";
@@ -1486,14 +1486,14 @@ async function callUpstreamWithHeaders(
             const strVal = String(val);
             if (strVal.length > 0) {
               userId = strVal;
-              debugLog("从JWT解析到 user_id: %s (字段: %s)", userId, key);
+               debugLog("Parsed user_id from JWT: %s (field: %s)", userId, key);
               break;
             }
           }
         }
       }
     } catch (e) {
-      debugLog("解析JWT失败: %v", e);
+       debugLog("Failed to parse JWT: %v", e);
     }
 
     // 2. 准备签名所需参数
@@ -1502,7 +1502,7 @@ async function callUpstreamWithHeaders(
     const lastMessageContent = ImageProcessor.extractLastUserContent(upstreamReq.messages);
 
     if (!lastMessageContent) {
-      throw new Error("无法获取用于签名的用户消息内容");
+       throw new Error("Cannot get user message content for signature");
     }
 
     const e = `requestId,${requestId},timestamp,${timestamp},user_id,${userId}`;
@@ -1513,10 +1513,10 @@ async function callUpstreamWithHeaders(
       lastMessageContent,
       timestamp
     );
-    debugLog("生成新版签名: %s", signature);
+     debugLog("Generate new version signature: %s", signature);
 
     const reqBody = JSON.stringify(upstreamReq);
-    debugLog("上游请求体: %s", reqBody);
+     debugLog("Upstream request body: %s", reqBody);
 
     // 4. 生成智能浏览器头部
     const smartHeaders = await SmartHeaderGenerator.generateHeaders(refererChatID);
@@ -1552,25 +1552,25 @@ async function callUpstreamWithHeaders(
       body: reqBody,
     });
 
-    debugLog("上游响应状态: %d %s", response.status, response.statusText);
+     debugLog("Upstream response status: %d %s", response.status, response.statusText);
 
     // 8. 成功时标记 Token 为有效
     tokenPool.markSuccess(authToken);
 
     return response;
   } catch (error) {
-    debugLog("调用上游失败: %v", error);
+     debugLog("Failed to call upstream: %v", error);
 
     // 失败时尝试切换 Token
     try {
       const newToken = await tokenPool.switchToNext();
       if (newToken) {
-        debugLog("切换到新 Token 重试: %s", newToken.substring(0, 20));
+         debugLog("Switch to new token retry: %s", newToken.substring(0, 20));
         // 递归重试一次，避免无限循环
         return callUpstreamWithHeaders(upstreamReq, refererChatID, newToken);
       }
     } catch (retryError) {
-      debugLog("Token 切换重试失败: %v", retryError);
+       debugLog("Token switch retry failed: %v", retryError);
     }
 
     throw error;

@@ -1,66 +1,66 @@
-# 技术文档：Z.ai API 请求签名机制更新
+# Technical Documentation: Z.ai API Request Signature Mechanism Update
 
-**日期**: 2025-10-19 (由 opencode 更新)
+**Date**: 2025-10-19 (Updated by opencode)
 
 ---
 
-## 1. 背景与目标
+## 1. Background and Objectives
 
-为了与上游 Z.ai API 最新的安全规范保持一致，原有的请求签名算法已进行升级。本次更新旨在增强请求的安全性，确保数据在传输过程中的完整性和真实性。
+To align with the latest security standards of the upstream Z.ai API, the existing request signature algorithm has been upgraded. This update aims to enhance request security, ensuring data integrity and authenticity during transmission.
 
-核心目标是将 `ZtoApi` 服务中的签名生成逻辑更新为采用 **请求体Base64编码** 的新版双层 HMAC-SHA256 算法。
+The core objective is to update the signature generation logic in the ZtoApi service to use the new dual-layer HMAC-SHA256 algorithm with **Base64 encoding of the request body**.
 
-## 2. 技术实现方案
+## 2. Technical Implementation Plan
 
-### 2.1 核心变更：`generateSignature` 函数
+### 2.1 Core Changes: `generateSignature` Function
 
-本次更新的核心在于 `generateSignature` 函数的逻辑调整。新算法在构造待签名字符串时，对用户消息内容 `t` 进行了 **Base64 编码**，这是与旧版最主要的区别。
+The core of this update lies in the logic adjustment of the `generateSignature` function. The new algorithm performs **Base64 encoding** on the user message content `t` when constructing the string to sign, which is the main difference from the old version.
 
-**新版函数实现:**
+**New Version Function Implementation:**
 
 ```typescript
 /**
- * 生成Z.ai API请求签名 (新版双层HMAC算法)
+ * Generate Z.ai API Request Signature (New Dual-Layer HMAC Algorithm)
  * @param e "requestId,request_id,timestamp,timestamp,user_id,user_id"
- * @param t 用户最新消息 (原始文本)
- * @param timestamp 时间戳 (毫秒)
+ * @param t Latest User Message (Raw Text)
+ * @param timestamp Timestamp (milliseconds)
  * @returns { signature: string, timestamp: string }
  */
 async function generateSignature(e: string, t: string, timestamp: number): Promise<{ signature: string, timestamp: string }> {
   const timestampStr = String(timestamp);
 
-  // 1. 对消息内容进行Base64编码 (核心变更)
-  const bodyEncoded = new TextEncoder().encode(t);
-  const bodyBase64 = btoa(String.fromCharCode(...bodyEncoded));
+   // 1. Base64 Encode Message Content (Core Change)
+   const bodyEncoded = new TextEncoder().encode(t);
+   const bodyBase64 = btoa(String.fromCharCode(...bodyEncoded));
 
-  // 2. 构造新的待签名字符串
-  const stringToSign = `${e}|${bodyBase64}|${timestampStr}`;
+   // 2. Construct New String to Sign
+   const stringToSign = `${e}|${bodyBase64}|${timestampStr}`;
 
-  // 3. 计算5分钟时间窗口
-  const timeWindow = Math.floor(timestamp / (5 * 60 * 1000));
+   // 3. Calculate 5-Minute Time Window
+   const timeWindow = Math.floor(timestamp / (5 * 60 * 1000));
 
-  // 4. 获取签名密钥
-  const secretEnv = Deno.env.get("ZAI_SIGNING_SECRET");
-  let rootKey: Uint8Array;
+   // 4. Obtain Signature Key
+   const secretEnv = Deno.env.get("ZAI_SIGNING_SECRET");
+   let rootKey: Uint8Array;
 
-  if (secretEnv) {
-    // 从环境变量读取密钥
-    if (/^[0-9a-fA-F]+$/.test(secretEnv) && secretEnv.length % 2 === 0) {
-      // HEX 格式
-      rootKey = new Uint8Array(secretEnv.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
-    } else {
-      // UTF-8 格式
-      rootKey = new TextEncoder().encode(secretEnv);
-    }
-    debugLog("使用环境变量密钥: %s", secretEnv.substring(0, 10) + "...");
-  } else {
-    // 使用新的默认密钥（与 Python 版本一致）
-    const defaultKeyHex = "6b65792d40404040292929282928283929292d787878782626262525252525";
-    rootKey = new Uint8Array(defaultKeyHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
-    debugLog("使用默认密钥");
-  }
+   if (secretEnv) {
+     // Read Key from Environment Variable
+     if (/^[0-9a-fA-F]+$/.test(secretEnv) && secretEnv.length % 2 === 0) {
+       // HEX Format
+       rootKey = new Uint8Array(secretEnv.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+     } else {
+       // UTF-8 Format
+       rootKey = new TextEncoder().encode(secretEnv);
+     }
+     debugLog("Using environment variable key: %s", secretEnv.substring(0, 10) + "...");
+   } else {
+     // Using New Default Key (Consistent with Python Version)
+     const defaultKeyHex = "6b65792d40404040292929282928283929292d787878782626262525252525";
+     rootKey = new Uint8Array(defaultKeyHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+     debugLog("Using default key");
+   }
 
-  // 5. 第一层 HMAC，生成中间密钥
+   // 5. First Layer HMAC, Generate Intermediate Key
   const rootKeyBuffer = rootKey.buffer.slice(rootKey.byteOffset, rootKey.byteOffset + rootKey.byteLength) as ArrayBuffer;
   const firstHmacKey = await crypto.subtle.importKey(
     "raw",
@@ -78,7 +78,7 @@ async function generateSignature(e: string, t: string, timestamp: number): Promi
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 
-  // 5. 第二层 HMAC，生成最终签名
+   // 5. Second Layer HMAC, Generate Final Signature
   const secondKeyMaterial = new TextEncoder().encode(intermediateKey);
   const secondHmacKey = await crypto.subtle.importKey(
     "raw",
@@ -96,7 +96,7 @@ async function generateSignature(e: string, t: string, timestamp: number): Promi
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 
-  debugLog("新版签名生成成功: %s", signature);
+   debugLog("New version signature generated successfully: %s", signature);
   return {
     signature,
     timestamp: timestampStr,
@@ -104,43 +104,43 @@ async function generateSignature(e: string, t: string, timestamp: number): Promi
 }
 ```
 
-### 2.2 集成逻辑
+### 2.2 Integration Logic
 
-签名逻辑的集成点依然在 `callUpstreamWithHeaders` 函数中。该函数现在调用更新后的 `generateSignature`，确保所有出站请求都使用新版签名进行验证。其他集成流程（如参数准备、请求构建）保持不变。
+The integration point for the signature logic is still in the `callUpstreamWithHeaders` function. This function now calls the updated `generateSignature` to ensure all outbound requests use the new signature for verification. Other integration processes (such as parameter preparation, request construction) remain unchanged.
 
 ---
 
-## 3. 配置与部署
+## 3. Configuration and Deployment
 
-### 3.1 环境变量配置
+### 3.1 Environment Variable Configuration
 
-新版签名算法支持通过环境变量自定义签名密钥：
+The new signature algorithm supports customizing the signature key via environment variables:
 
 ```bash
-# 使用环境变量自定义签名密钥（推荐）
+# Customize Signature Key Using Environment Variable (Recommended)
 export ZAI_SIGNING_SECRET="your-secret-key-here"
 
-# 或使用HEX格式密钥
+# Or Use HEX Format Key
 export ZAI_SIGNING_SECRET="6b65792d40404040292929282928283929292d787878782626262525252525"
 ```
 
-### 3.2 兼容性说明
+### 3.2 Compatibility Notes
 
-- **向后兼容**: 新版算法与旧版完全兼容，不会影响现有部署。
-- **密钥格式**: 支持 HEX 和 UTF-8 格式的密钥。
-- **默认密钥**: 如果未设置 `ZAI_SIGNING_SECRET`，将使用内置的安全密钥。
+- **Backward Compatibility**: The new algorithm is fully compatible with the old version and will not affect existing deployments.
+- **Key Format**: Supports HEX and UTF-8 format keys.
+- **Default Key**: If `ZAI_SIGNING_SECRET` is not set, a built-in secure key will be used.
 
-## 4. 测试与验证
+## 4. Testing and Verification
 
-### 4.1 本地测试
+### 4.1 Local Testing
 
-在本地环境中测试新版签名算法：
+Test the new signature algorithm in the local environment:
 
 ```bash
-# 启动服务器
+# Start Server
 deno run --allow-net --allow-env main.ts
 
-# 发送测试请求
+# Send Test Request
 curl -X POST http://localhost:9090/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your-api-key" \
@@ -151,42 +151,42 @@ curl -X POST http://localhost:9090/v1/chat/completions \
   }'
 ```
 
-### 4.2 日志验证
+### 4.2 Log Verification
 
-启用调试模式查看签名生成日志：
+Enable debug mode to view signature generation logs:
 
 ```bash
 export DEBUG_MODE=true
 ```
 
-预期日志输出：
+Expected Log Output:
 ```
-使用环境变量密钥: your-secret-key...
-新版签名生成成功: abc123...
+Using environment variable key: your-secret-key...
+New version signature generated successfully: abc123...
 ```
 
-## 5. 故障排除
+## 5. Troubleshooting
 
-### 5.1 常见问题
+### 5.1 Common Issues
 
-| 问题 | 原因 | 解决方案 |
-|------|------|----------|
-| 签名验证失败 | 密钥格式错误 | 检查 `ZAI_SIGNING_SECRET` 是否为有效格式 |
-| 请求被拒绝 | 时间窗口不同步 | 确保服务器时间准确 |
-| 性能下降 | 频繁密钥计算 | 使用缓存机制或优化密钥管理 |
+| Problem | Cause | Solution |
+|---------|-------|----------|
+| Signature Verification Failed | Incorrect Key Format | Check if `ZAI_SIGNING_SECRET` is in a valid format |
+| Request Rejected | Time Window Out of Sync | Ensure server time is accurate |
+| Performance Degradation | Frequent Key Calculation | Use caching mechanisms or optimize key management |
 
-### 5.2 调试技巧
+### 5.2 Debugging Tips
 
-- 检查调试日志中的签名生成过程
-- 验证 Base64 编码是否正确
-- 确认时间窗口计算逻辑
+- Check the signature generation process in debug logs
+- Verify if Base64 encoding is correct
+- Confirm time window calculation logic
 
-## 6. 未来维护
+## 6. Future Maintenance
 
-- 定期更新默认密钥以提升安全性
-- 监控签名算法的性能指标
-- 根据上游 API 变化及时调整算法
+- Regularly update default key to enhance security
+- Monitor performance metrics of the signature algorithm
+- Adjust algorithm promptly based on upstream API changes
 
 ---
 
-**更新完成**: 新版签名机制已集成到 ZtoApi v2.0，确保与上游 Z.ai API 的完全兼容。
+**Update Completed**: The new signature mechanism has been integrated into ZtoApi v2.0, ensuring full compatibility with the upstream Z.ai API.
