@@ -190,3 +190,5 @@ New version signature generated successfully: abc123...
 ---
 
 **Update Completed**: The new signature mechanism has been integrated into ZtoApi v2.0, ensuring full compatibility with the upstream Z.ai API.
+
+For general configuration and usage, see [Getting Started](../docs/getting-started.md) and [Features](../docs/features.md).

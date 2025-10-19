@@ -148,4 +148,22 @@ print("Reasoning:", response.choices[0].message.reasoning_content)
 - **🧹 Clean Output**: Use "strip" mode for production-ready responses
 - **📊 Structured Data**: Use "separate" mode for educational tools or analytics
 
+## 🔐 Enhanced Security Features
+
+### Dual-Layer HMAC-SHA256 Signature
+ZtoApi now uses an advanced signature mechanism for all upstream requests:
+- **Base64 Encoding**: Request bodies are Base64 encoded for secure transmission.
+- **Dual-Layer HMAC**: Two-stage HMAC-SHA256 process for enhanced security.
+- **Configurable Key**: Set `ZAI_SIGNING_SECRET` environment variable to customize the signature key.
+- **Automatic Generation**: Signatures are generated automatically for each request.
+
+### Token Pool Management
+- **Automatic Token Handling**: Efficient management of API tokens with built-in pooling.
+- **Anonymous Access**: Supports token fetching for unauthenticated requests.
+- **Rotation and Reuse**: Tokens are rotated and reused to optimize performance and reliability.
+
+These features ensure secure and efficient communication with the Z.ai API without requiring manual intervention.
+
+For configuration details, see [Getting Started](../docs/getting-started.md) and [signature-update-guide.md](../signature-update-guide.md).
+
 For more examples, see [Examples](../docs/examples.md).
