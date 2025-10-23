@@ -20,7 +20,7 @@
  * @since 2024
  */
 
-import { decodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts";
+import { decodeBase64 } from "jsr:@std/encoding@1/base64";
 import {
   type AnthropicMessagesRequest,
   type AnthropicMessagesResponse,
@@ -122,6 +122,7 @@ interface OpenAIRequest {
   stream?: boolean;
   temperature?: number;
   max_tokens?: number;
+  reasoning?: boolean;
 }
 
 /**
@@ -166,6 +167,7 @@ interface UpstreamRequest {
   };
   tool_servers?: string[];
   variables?: Record<string, string>;
+  signature_prompt?: string;
 }
 
 /**
@@ -197,6 +199,37 @@ interface Usage {
   prompt_tokens: number;
   completion_tokens: number;
   total_tokens: number;
+}
+
+/**
+ * MCP Server Configuration
+ */
+interface MCPServerConfig {
+  name: string;
+  description: string;
+  enabled: boolean;
+}
+
+/**
+ * Model Capabilities
+ */
+interface ModelCapabilities {
+  thinking: boolean;
+  search: boolean;
+  advancedSearch: boolean;
+  vision: boolean;
+  mcp: boolean;
+}
+
+/**
+ * Uploaded File structure
+ */
+interface UploadedFile {
+  id: string;
+  filename: string;
+  size: number;
+  type: string;
+  url: string;
 }
 
 /**
@@ -2854,10 +2887,26 @@ async function handleChatCompletions(request: Request): Promise<Response> {
     }
   }
 
+  // Get token using token pool (moved here to be available for image processing)
+  let authToken: string;
+  try {
+    authToken = await tokenPool.getToken();
+    debugLog("Token obtained successfully: %s...", authToken.substring(0, 10));
+  } catch (error) {
+    debugLog("Token acquisition failed: %v", error);
+    const duration = Date.now() - startTime;
+    recordRequestStats(startTime, path, 500);
+    addLiveRequest(request.method, path, 500, duration, userAgent);
+    return new Response("Failed to obtain authentication token", {
+      status: 500,
+      headers,
+    });
+  }
+
   // Process and validate messages (multimodal handling)
   const processedMessages = processMessages(req.messages, modelConfig);
    debugLog("Messages processed, count after processing: %d", processedMessages.length);
- 
+
    // Check if contains multimodal content and use new image processor
    const hasMultimodal = ImageProcessor.hasImageContent(req.messages);
   let finalMessages = processedMessages;
@@ -3018,21 +3067,7 @@ async function handleChatCompletions(request: Request): Promise<Response> {
      signature_prompt: lastUserContent,
    };
  
-   // Get token using token pool
-   let authToken: string;
-   try {
-     authToken = await tokenPool.getToken();
-     debugLog("Token obtained successfully: %s...", authToken.substring(0, 10));
-   } catch (error) {
-     debugLog("Token acquisition failed: %v", error);
-    const duration = Date.now() - startTime;
-    recordRequestStats(startTime, path, 500);
-    addLiveRequest(request.method, path, 500, duration, userAgent);
-    return new Response("Failed to get authentication token", {
-      status: 500,
-      headers,
-    });
-  }
+   // Token already acquired earlier
 
   // Call upstream
   try {
