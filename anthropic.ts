@@ -233,10 +233,73 @@ function mapClaudeToZaiModel(claudeModel: string): string {
 }
 
 /**
+ * OpenAI-compatible message structure
+ */
+interface OpenAIMessage {
+  role: string;
+  content: string | Array<{
+    type: string;
+    text?: string;
+    image_url?: { url: string };
+  }>;
+  tool_calls?: Array<{
+    id: string;
+    type: string;
+    function: {
+      name: string;
+      arguments: string;
+    };
+  }>;
+  tool_call_id?: string;
+}
+
+/**
+ * OpenAI-compatible request structure
+ */
+interface OpenAIRequest {
+  model: string;
+  messages: OpenAIMessage[];
+  stream?: boolean;
+  max_tokens?: number;
+  temperature?: number;
+  top_p?: number;
+  stop?: string[];
+  tools?: Array<{
+    type: string;
+    function: {
+      name: string;
+      description: string;
+      parameters: Record<string, unknown>;
+    };
+  }>;
+  tool_choice?: string | {
+    type: string;
+    function: { name: string };
+  };
+}
+
+interface OpenAIResponse {
+  id: string;
+  object: string;
+  created: number;
+  model: string;
+  choices: Array<{
+    index: number;
+    message: OpenAIMessage;
+    finish_reason?: string;
+  }>;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  };
+}
+
+/**
  * Convert Anthropic request to OpenAI-compatible format
  */
-function convertAnthropicToOpenAI(request: AnthropicMessagesRequest): any {
-  const messages: any[] = [];
+function convertAnthropicToOpenAI(request: AnthropicMessagesRequest): OpenAIRequest {
+  const messages: OpenAIMessage[] = [];
   
   // Add system message if present
   if (request.system) {
@@ -260,15 +323,27 @@ function convertAnthropicToOpenAI(request: AnthropicMessagesRequest): any {
   
   // Convert Anthropic messages to OpenAI format
   for (const message of request.messages) {
-    const openaiMessage: any = {
-      role: message.role
+    const openaiMessage: OpenAIMessage = {
+      role: message.role,
+      content: ""
     };
-    
+
     if (typeof message.content === "string") {
       openaiMessage.content = message.content;
     } else if (Array.isArray(message.content)) {
-      const contentParts: any[] = [];
-      const toolCalls: any[] = [];
+      const contentParts: Array<{
+        type: string;
+        text?: string;
+        image_url?: { url: string };
+      }> = [];
+      const toolCalls: Array<{
+        id: string;
+        type: string;
+        function: {
+          name: string;
+          arguments: string;
+        };
+      }> = [];
       
       for (const part of message.content) {
         switch (part.type) {
@@ -279,7 +354,7 @@ function convertAnthropicToOpenAI(request: AnthropicMessagesRequest): any {
             });
             break;
             
-          case "image":
+          case "image": {
             const source = part.source;
             if (source.type === "base64") {
               contentParts.push({
@@ -290,6 +365,7 @@ function convertAnthropicToOpenAI(request: AnthropicMessagesRequest): any {
               });
             }
             break;
+          }
             
           case "tool_use":
             toolCalls.push({
@@ -302,7 +378,7 @@ function convertAnthropicToOpenAI(request: AnthropicMessagesRequest): any {
             });
             break;
             
-          case "tool_result":
+          case "tool_result": {
             let toolContent = "";
             if (typeof part.content === "string") {
               toolContent = part.content;
@@ -312,13 +388,14 @@ function convertAnthropicToOpenAI(request: AnthropicMessagesRequest): any {
                 .map(item => item.text)
                 .join("\n");
             }
-            
+
             messages.push({
               role: "tool",
               content: toolContent,
               tool_call_id: part.tool_use_id
             });
             continue;
+          }
         }
       }
       
@@ -328,7 +405,7 @@ function convertAnthropicToOpenAI(request: AnthropicMessagesRequest): any {
           .filter(part => part.type === "text")
           .map(part => part.text)
           .join("\n");
-        openaiMessage.content = textContent || null;
+        openaiMessage.content = textContent || "";
       } else if (contentParts.length > 0) {
         openaiMessage.content = contentParts;
       } else {
@@ -340,7 +417,7 @@ function convertAnthropicToOpenAI(request: AnthropicMessagesRequest): any {
   }
   
   // Build the OpenAI request
-  const openaiRequest: any = {
+  const openaiRequest: OpenAIRequest = {
     model: mapClaudeToZaiModel(request.model),
     messages,
     stream: request.stream || false
@@ -400,7 +477,7 @@ function convertAnthropicToOpenAI(request: AnthropicMessagesRequest): any {
  * Convert OpenAI response to Anthropic format
  */
 function convertOpenAIToAnthropic(
-  response: any, 
+  response: OpenAIResponse,
   originalModel: string,
   requestId: string
 ): AnthropicMessagesResponse {
@@ -528,7 +605,7 @@ async function* processAnthropicStream(
   let buffer = "";
   let messageStarted = false;
   let contentBlockStarted = false;
-  let inputTokens = 0;
+  let _inputTokens = 0;
   let outputTokens = 0;
   
   try {
@@ -636,7 +713,7 @@ async function* processAnthropicStream(
               // Get usage info
               if (chunk.usage) {
                 outputTokens = chunk.usage.completion_tokens || 0;
-                inputTokens = chunk.usage.prompt_tokens || 0;
+                _inputTokens = chunk.usage.prompt_tokens || 0;
               }
               
               // Send message_delta

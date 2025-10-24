@@ -1,5 +1,5 @@
 // Tab functionality for documentation page
-function openTab(evt, tabName) {
+function _openTab(evt, tabName) {
     // Hide all tab content
     const tabContents = document.getElementsByClassName("tabcontent");
     for (let i = 0; i < tabContents.length; i++) {

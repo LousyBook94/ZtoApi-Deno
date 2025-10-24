@@ -1,6 +1,8 @@
 {
   "imports": {
-    "gpt-tokenizer": "npm:gpt-tokenizer@^3.0.1"
+    "gpt-tokenizer": "npm:gpt-tokenizer@^3.0.1",
+    "@std/encoding": "jsr:@std/encoding@1",
+    "assert": "https://deno.land/std@0.224.0/assert/mod.ts"
   },
   "tasks": {
     "start": "deno run --allow-net --allow-env --allow-read main.ts",
@@ -10,7 +12,6 @@
     "test-anthropic": "deno run --allow-net test_anthropic.ts"
   },
   "compilerOptions": {
-    "strict": true,
-    "allowJs": true
+    "strict": true
   }
 }

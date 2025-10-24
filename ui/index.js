@@ -107,8 +107,8 @@ if (heroStats) {
 // Scroll to top button
 const scrollToTopBtn = document.getElementById('scrollToTop');
 
-window.addEventListener('scroll', () => {
-    if (window.pageYOffset > 300) {
+globalThis.addEventListener('scroll', () => {
+    if (globalThis.pageYOffset > 300) {
         scrollToTopBtn.classList.add('visible');
     } else {
         scrollToTopBtn.classList.remove('visible');
@@ -116,7 +116,7 @@ window.addEventListener('scroll', () => {
 });
 
 scrollToTopBtn.addEventListener('click', () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    globalThis.scrollTo({ top: 0, behavior: 'smooth' });
 });
 
 // 3D perspective tilt effect for cards - enhanced with button 3D
@@ -170,6 +170,6 @@ cards.forEach((card, index) => {
 });
 
 // Add loading animation
-window.addEventListener('load', () => {
+globalThis.addEventListener('load', () => {
     body.classList.add('loaded');
 });

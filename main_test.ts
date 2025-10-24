@@ -1,4 +1,4 @@
-import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { assertEquals } from "assert";
 import { transformThinking } from "./main.ts";
 
 Deno.test("transformThinking - strip mode", () => {

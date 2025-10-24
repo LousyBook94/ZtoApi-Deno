@@ -20,20 +20,16 @@
  * @since 2024
  */
 
-import { decodeBase64 } from "jsr:@std/encoding@1/base64";
+import { decodeBase64 } from "@std/encoding/base64";
 import {
   type AnthropicMessagesRequest,
-  type AnthropicMessagesResponse,
   type AnthropicTokenCountRequest,
   type AnthropicTokenCountResponse,
-  type AnthropicError,
   convertAnthropicToOpenAI,
   convertOpenAIToAnthropic,
   countTokens,
   processAnthropicStream,
-  getClaudeModels,
-  createErrorResponse,
-  CLAUDE_MODEL_MAPPINGS
+  getClaudeModels
 } from "./anthropic.ts";
 
 declare global {
@@ -318,39 +314,6 @@ interface Model {
 // - "separate": separate reasoning into reasoning_content field
 const THINK_TAGS_MODE = "think"; // options: "strip", "thinking", "think", "raw", "separate"
 
-// MCP Server Configuration
- const MCP_SERVERS: Record<string, MCPServerConfig> = {
-   "deep-web-search": {
-     name: "Deep Web Search",
-     description: "Deep Web Search Function",
-     enabled: true,
-   },
-   "advanced-search": {
-     name: "Advanced Search",
-     description: "Advanced Search Function",
-     enabled: true,
-   },
-   "vibe-coding": {
-     name: "Vibe Coding",
-     description: "Programming Assistant Function",
-     enabled: true,
-   },
-   "ppt-maker": {
-     name: "PPT Maker",
-     description: "PPT Generation Function",
-     enabled: true,
-   },
-   "image-search": {
-     name: "Image Search",
-     description: "Image Search Function",
-     enabled: true,
-   },
-   "deep-research": {
-     name: "Deep Research",
-     description: "Deep Research Function",
-     enabled: true,
-   },
- };
 
 /**
   * Advanced Mode Detector
@@ -439,98 +402,126 @@ class ModelCapabilityDetector {
 }
 
 /**
-  * Smart Header Generator
-  * Dynamically generate real browser request headers
-  */
+   * Smart Header Generator (Updated to match Python version)
+   * Dynamically generate real browser request headers with proper sec-ch-ua
+   */
 class SmartHeaderGenerator {
-  private static cachedHeaders: Record<string, string> | null = null;
-  private static cacheExpiry: number = 0;
+   private static cachedHeaders: Record<string, string> | null = null;
+   private static cacheExpiry: number = 0;
    private static readonly CACHE_DURATION = 5 * 60 * 1000; // 5-minute cache
 
-   /**
-    * Generate smart browser headers
-    */
-   static async generateHeaders(chatId: string = ""): Promise<Record<string, string>> {
-     // Check cache
-     const now = Date.now();
-    if (this.cachedHeaders && this.cacheExpiry > now) {
-      const headers = { ...this.cachedHeaders };
-      if (chatId) {
-        headers["Referer"] = `${ORIGIN_BASE}/c/${chatId}`;
-      }
-      return headers;
+   // Browser configurations matching Python version
+   private static readonly browserConfigs = [
+     {
+       ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+       secChUa: '"Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"',
+       version: "140.0.0.0"
+     },
+     {
+       ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
+       secChUa: '"Chromium";v="139", "Not=A?Brand";v="24", "Google Chrome";v="139"',
+       version: "139.0.0.0"
+     },
+     {
+       ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0",
+       secChUa: '"Microsoft Edge";v="141", "Not?A_Brand";v="8", "Chromium";v="141"',
+       version: "141.0.0.0"
+     },
+     {
+       ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0",
+       secChUa: '"Not_A Brand";v="8", "Chromium";v="126", "Firefox";v="126"',
+       version: "126.0"
+     },
+     {
+       ua: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+       secChUa: '"Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"',
+       version: "140.0.0.0"
      }
+   ];
 
-     // Generate new headers
-     const headers = await this.generateFreshHeaders();
-    this.cachedHeaders = headers;
-    this.cacheExpiry = now + this.CACHE_DURATION;
-
-     debugLog("Smart Header has been generated and cached");
-     return headers;
-  }
-
-   private static async generateFreshHeaders(): Promise<Record<string, string>> {
-     // Randomly select browser configuration
-     const browserConfigs = [
-      {
-        ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
-        secChUa: '"Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"',
-        version: "140.0.0.0"
-      },
-      {
-        ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
-        secChUa: '"Chromium";v="139", "Not=A?Brand";v="24", "Google Chrome";v="139"',
-        version: "139.0.0.0"
-      },
-      {
-        ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0",
-        secChUa: '"Not_A Brand";v="8", "Chromium";v="126", "Firefox";v="126"',
-        version: "126.0"
-      },
-      {
-        ua: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
-        secChUa: '"Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"',
-        version: "140.0.0.0"
+    /**
+     * Generate smart browser headers (matching Python version)
+     */
+    static async generateHeaders(chatId: string = ""): Promise<Record<string, string>> {
+      // Check cache
+      const now = Date.now();
+     if (this.cachedHeaders && this.cacheExpiry > now) {
+       const headers = { ...this.cachedHeaders };
+       if (chatId) {
+         headers["Referer"] = `${ORIGIN_BASE}/c/${chatId}`;
+       }
+       return headers;
       }
-    ];
 
-    const config = browserConfigs[Math.floor(Math.random() * browserConfigs.length)];
+      // Fetch latest FE version before generating headers
+      await fetchLatestFEVersion();
 
-     return {
-       // Basic headers
-       "Accept": "*/*",
-      "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-      "Accept-Encoding": "gzip, deflate, br, zstd",
-      "Cache-Control": "no-cache",
-      "Connection": "keep-alive",
-      "Content-Type": "application/json",
-      "Pragma": "no-cache",
-      "Sec-Fetch-Dest": "empty",
-      "Sec-Fetch-Mode": "cors",
-       "Sec-Fetch-Site": "same-origin",
- 
-       // Browser-specific headers
-       "User-Agent": config.ua,
-      "Sec-Ch-Ua": config.secChUa,
-      "Sec-Ch-Ua-Mobile": "?0",
-       "Sec-Ch-Ua-Platform": '"Windows"',
- 
-       // Z.AI specific headers
-       "Origin": ORIGIN_BASE,
-      "Referer": `${ORIGIN_BASE}/`,
-      "X-Fe-Version": X_FE_VERSION,
-    };
-  }
+      // Generate new headers
+      const headers = this.generateFreshHeaders(chatId);
+     this.cachedHeaders = headers;
+     this.cacheExpiry = now + this.CACHE_DURATION;
 
-   /**
-    * Clear cache
-    */
-  static clearCache(): void {
-    this.cachedHeaders = null;
-    this.cacheExpiry = 0;
-     debugLog("Header cache cleared");
-  }
+      debugLog("Python version smart headers generated and cached with latest FE version: %s", X_FE_VERSION);
+      return headers;
+   }
+
+    private static generateFreshHeaders(chatId: string = ""): Record<string, string> {
+      // Randomly select browser configuration (weighted towards Chrome/Edge like Python version)
+      const config = this.browserConfigs[Math.floor(Math.random() * this.browserConfigs.length)];
+
+      // Generate sec-ch-ua based on user agent (matching Python logic)
+      let secChUa = config.secChUa;
+      let secChUaPlatform = '"Windows"';
+
+      if (config.ua.includes("Edg/")) {
+        // Edge browser
+        const edgeVersion = config.version.split(".")[0];
+        secChUa = `"Microsoft Edge";v="${edgeVersion}", "Chromium";v="${edgeVersion}", "Not_A Brand";v="24"`;
+      } else if (config.ua.includes("Firefox/")) {
+        // Firefox browser
+        const firefoxVersion = config.version.split(".")[0];
+        secChUa = `"Not_A Brand";v="8", "Chromium";v="${firefoxVersion}", "Firefox";v="${firefoxVersion}"`;
+      } else if (config.ua.includes("Macintosh")) {
+        // macOS Chrome
+        secChUaPlatform = '"macOS"';
+      }
+
+      const referer = chatId ? `${ORIGIN_BASE}/c/${chatId}` : `${ORIGIN_BASE}/`;
+
+      return {
+        // Basic headers (matching Python version)
+        "Accept": "application/json, text/event-stream",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "Content-Type": "application/json",
+        "Pragma": "no-cache",
+
+        // Browser-specific headers (matching Python version)
+        "User-Agent": config.ua,
+        "Sec-Ch-Ua": secChUa,
+        "Sec-Ch-Ua-Mobile": "?0",
+        "Sec-Ch-Ua-Platform": secChUaPlatform,
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "same-origin",
+
+        // Z.AI specific headers
+        "Origin": ORIGIN_BASE,
+        "Referer": referer,
+        "X-Fe-Version": X_FE_VERSION,
+     };
+   }
+
+    /**
+     * Clear cache
+     */
+   static clearCache(): void {
+     this.cachedHeaders = null;
+     this.cacheExpiry = 0;
+      debugLog("Header cache cleared");
+   }
 }
 
 /**
@@ -538,7 +529,7 @@ class SmartHeaderGenerator {
   */
 class BrowserFingerprintGenerator {
    /**
-    * Generate complete browser fingerprint parameters
+    * Generate complete browser fingerprint parameters (matching Python version)
     */
   static generateFingerprintParams(
     timestamp: number,
@@ -548,95 +539,130 @@ class BrowserFingerprintGenerator {
    ): Record<string, string> {
      // Extract user ID from JWT token (multi-field support, consistent with Python version)
      let userId = "guest";
-    try {
-      const tokenParts = token.split(".");
-      if (tokenParts.length === 3) {
+     try {
+       const tokenParts = token.split(".");
+       if (tokenParts.length === 3) {
          const payload = JSON.parse(atob(tokenParts[1]));
- 
+
          // Try multiple possible user_id fields (consistent with Python version)
          for (const key of ["id", "user_id", "uid", "sub"]) {
-          const val = payload[key];
-          if (typeof val === "string" || typeof val === "number") {
-            const strVal = String(val);
-            if (strVal.length > 0) {
-              userId = strVal;
-              break;
-            }
-          }
-        }
-      }
-    } catch (e) {
-      debugLog("Failed to parse JWT token: %v", e);
-    }
+           const val = payload[key];
+           if (typeof val === "string" || typeof val === "number") {
+             const strVal = String(val);
+             if (strVal.length > 0) {
+               userId = strVal;
+               debugLog("Parsed user_id from JWT: %s (field: %s)", userId, key);
+               break;
+             }
+           }
+         }
+       }
+     } catch (e) {
+       debugLog("Failed to parse JWT token: %v", e);
+     }
 
     const now = new Date(timestamp);
     const localTime = now.toISOString().replace('T', ' ').substring(0, 23) + 'Z';
 
      return {
-       // Basic parameters
+       // Basic parameters (matching Python version)
        "timestamp": timestamp.toString(),
-      "requestId": requestId,
-      "user_id": userId,
-      "version": "0.0.1",
-      "platform": "web",
+       "requestId": requestId,
+       "user_id": userId,
+       "version": "0.0.1",
+       "platform": "web",
        "token": token,
- 
-       // Browser environment parameters
+
+       // Browser environment parameters (matching Python version)
        "user_agent": BROWSER_UA,
-      "language": "zh-CN",
-      "languages": "zh-CN,zh",
-      "timezone": "Asia/Shanghai",
+       "language": "zh-CN",
+       "languages": "zh-CN,zh",
+       "timezone": "Asia/Shanghai",
        "cookie_enabled": "true",
- 
-       // Screen parameters
+
+       // Screen parameters (matching Python version)
        "screen_width": "2048",
-      "screen_height": "1152",
-      "screen_resolution": "2048x1152",
-      "viewport_height": "654",
-      "viewport_width": "1038",
-      "viewport_size": "1038x654",
-      "color_depth": "24",
+       "screen_height": "1152",
+       "screen_resolution": "2048x1152",
+       "viewport_height": "654",
+       "viewport_width": "1038",
+       "viewport_size": "1038x654",
+       "color_depth": "24",
        "pixel_ratio": "1.25",
- 
-       // URL parameters
+
+       // URL parameters (matching Python version)
        "current_url": chatId ? `${ORIGIN_BASE}/c/${chatId}` : ORIGIN_BASE,
-      "pathname": chatId ? `/c/${chatId}` : "/",
-      "search": "",
-      "hash": "",
-      "host": "chat.z.ai",
-      "hostname": "chat.z.ai",
-      "protocol": "https:",
-      "referrer": "",
+       "pathname": chatId ? `/c/${chatId}` : "/",
+       "search": "",
+       "hash": "",
+       "host": "chat.z.ai",
+       "hostname": "chat.z.ai",
+       "protocol": "https:",
+       "referrer": "",
        "title": "Z.ai Chat - Free AI powered by GLM-4.6 & GLM-4.5",
- 
-       // Time parameters
+
+       // Time parameters (matching Python version)
        "timezone_offset": "-480",
-      "local_time": localTime,
+       "local_time": localTime,
        "utc_time": now.toUTCString(),
- 
-       // Device parameters
+
+       // Device parameters (matching Python version)
        "is_mobile": "false",
-      "is_touch": "false",
-      "max_touch_points": "10",
-      "browser_name": "Chrome",
+       "is_touch": "false",
+       "max_touch_points": "10",
+       "browser_name": "Chrome",
        "os_name": "Windows",
- 
-       // Signature parameters
+
+       // Signature parameters (matching Python version)
        "signature_timestamp": timestamp.toString(),
     };
   }
 }
 
-// Spoofed front-end headers (observed from capture)
-// Updated to match capture in example.json
-const X_FE_VERSION = "prod-fe-1.0.95";
+// Dynamic FE version (will be fetched from website)
+let X_FE_VERSION = "prod-fe-1.0.95"; // fallback default
 const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0";
 const SEC_CH_UA = "\"Chromium\";v=\"140\", \"Not=A?Brand\";v=\"24\", \"Microsoft Edge\";v=\"140\"";
 const SEC_CH_UA_MOB = "?0";
 const SEC_CH_UA_PLAT = "\"Windows\"";
 const ORIGIN_BASE = "https://chat.z.ai";
 
-const ANON_TOKEN_ENABLED = true;
+/**
+ * Fetch latest FE version from Z.ai website (matching Python version)
+ */
+async function fetchLatestFEVersion(): Promise<string> {
+  try {
+    debugLog("Fetching latest FE version from Z.ai website");
+
+    const response = await fetch(ORIGIN_BASE, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        "Cache-Control": "no-cache"
+      }
+    });
+
+    if (response.ok) {
+      const html = await response.text();
+      const versionMatch = html.match(/prod-fe-(\d+\.\d+\.\d+)/);
+
+      if (versionMatch) {
+        const newVersion = `prod-fe-${versionMatch[1]}`;
+        if (newVersion !== X_FE_VERSION) {
+          debugLog("Updated FE version from %s to %s", X_FE_VERSION, newVersion);
+          X_FE_VERSION = newVersion;
+        }
+        return X_FE_VERSION;
+      }
+    }
+  } catch (error) {
+    debugLog("Failed to fetch FE version: %v", error);
+  }
+
+  return X_FE_VERSION; // fallback to current version
+}
+
 
 /**
  * Environment variable configuration
@@ -737,7 +763,7 @@ class TokenPool {
    /**
     * Switch to next token (called when current token fails)
     */
-  async switchToNext(): Promise<string | null> {
+  switchToNext(): string | null {
      if (this.tokens.length === 0) return null;
  
      // Mark current token as failed
@@ -891,31 +917,46 @@ class ImageProcessor {
       const blob = new Blob([arrayBuffer], { type: mimeType });
        formData.append("file", blob, filename);
  
-       // Upload to Z.AI
-       const uploadResponse = await fetch("https://chat.z.ai/api/files", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Origin": ORIGIN_BASE,
-          "Referer": `${ORIGIN_BASE}/`,
-        },
-        body: formData,
-      });
+       // Upload to Z.AI (matching Python version headers)
+       const uploadResponse = await fetch("https://chat.z.ai/api/v1/files/", {
+         method: "POST",
+         headers: {
+           "Authorization": `Bearer ${token}`,
+           "Origin": ORIGIN_BASE,
+           "Referer": `${ORIGIN_BASE}/`,
+           "Accept": "*/*",
+           "Accept-Language": "zh-CN,zh;q=0.9",
+           "Cache-Control": "no-cache",
+           "Connection": "keep-alive",
+           "Pragma": "no-cache",
+           "Sec-Ch-Ua": '"Microsoft Edge";v="141", "Not?A_Brand";v="8", "Chromium";v="141"',
+           "Sec-Ch-Ua-Mobile": "?0",
+           "Sec-Ch-Ua-Platform": '"Windows"',
+           "Sec-Fetch-Dest": "empty",
+           "Sec-Fetch-Mode": "cors",
+           "Sec-Fetch-Site": "same-origin",
+           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0",
+           "X-Fe-Version": X_FE_VERSION,
+         },
+         body: formData,
+       });
 
       if (!uploadResponse.ok) {
         throw new Error(`Upload failed: ${uploadResponse.statusText}`);
       }
 
-      const uploadResult = await uploadResponse.json() as any;
+      const uploadResult = await uploadResponse.json() as { id: string; filename?: string; url: string };
        debugLog("Image upload successful: %s", uploadResult.id);
 
-      return {
-        id: uploadResult.id,
-        filename: uploadResult.filename || filename,
-        size: imageData.length,
-        type: mimeType,
-        url: uploadResult.url,
-      };
+      // Return file structure consistent with Python version
+       const currentTimestamp = Math.floor(Date.now() / 1000);
+       return {
+         id: uploadResult.id,
+         filename: uploadResult.filename || filename,
+         size: imageData.length,
+         type: mimeType,
+         url: uploadResult.url || `/api/v1/files/${uploadResult.id}/content`
+       };
     } catch (error) {
        debugLog("Image upload failed: %v", error);
       return null;
@@ -939,7 +980,11 @@ class ImageProcessor {
       const processedMsg: Message = { ...msg };
 
       if (msg.role === "user" && Array.isArray(msg.content)) {
-        const newContent: any[] = [];
+        const newContent: Array<{
+          type: string;
+          text?: string;
+          image_url?: { url: string };
+        }> = [];
 
         for (const part of msg.content) {
           if (part.type === "image_url" && part.image_url?.url) {
@@ -970,7 +1015,7 @@ class ImageProcessor {
  
          // If only text content, convert to string format
          if (newContent.length === 1 && newContent[0].type === "text") {
-          processedMsg.content = newContent[0].text;
+          processedMsg.content = newContent[0].text || "";
         } else if (newContent.length > 0) {
           processedMsg.content = newContent;
         } else {
@@ -1415,41 +1460,68 @@ function validateApiKey(authHeader: string | null): boolean {
 }
 
 async function getAnonymousToken(): Promise<string> {
-  try {
-    const response = await fetch(`${ORIGIN_BASE}/api/v1/auths/`, {
-      method: "GET",
-      headers: {
-        "User-Agent": BROWSER_UA,
-        "Accept": "*/*",
-        "Accept-Language": "en-US,en;q=0.9",
-        "X-FE-Version": X_FE_VERSION,
-        "sec-ch-ua": SEC_CH_UA,
-        "sec-ch-ua-mobile": SEC_CH_UA_MOB,
-        "sec-ch-ua-platform": SEC_CH_UA_PLAT,
-        "Origin": ORIGIN_BASE,
-        "Referer": `${ORIGIN_BASE}/`
-      }
-    });
+   // Retry logic matching Python version exactly
+   const maxRetries = 3;
+   let retryCount = 0;
 
-    if (!response.ok) {
-      throw new Error(`Anonymous token request failed with status ${response.status}`);
-    }
+   while (retryCount < maxRetries) {
+     try {
+       debugLog("Attempting to get anonymous token (attempt %d/%d)", retryCount + 1, maxRetries);
 
-    const data = await response.json() as { token: string };
-    if (!data.token) {
-      throw new Error("Anonymous token is empty");
-    }
+       // Generate dynamic headers for each request (matching Python version)
+       const dynamicHeaders = await SmartHeaderGenerator.generateHeaders();
 
-    return data.token;
-  } catch (error) {
-    debugLog("Failed to obtain anonymous token: %v", error);
-    throw error;
-  }
+       const response = await fetch(`${ORIGIN_BASE}/api/v1/auths/`, {
+         method: "GET",
+         headers: {
+           ...dynamicHeaders,
+           "Accept": "*/*",
+           "Accept-Language": "en-US,en;q=0.9",
+         }
+       });
+
+       debugLog("Anonymous token response status: %d", response.status);
+
+       if (response.status === 200) {
+         const data = await response.json() as { token: string; email?: string };
+         if (data.token) {
+           // Check if it's a guest token (matching Python version exactly)
+           const email = data.email || "";
+           const isGuest = email.includes("@guest.com") || email.includes("Guest-");
+           const tokenType = isGuest ? "guest" : "authenticated";
+           debugLog("✅ Anonymous token obtained successfully (%s): %s...", tokenType, data.token.substring(0, 20));
+           return data.token;
+         } else {
+           debugLog("⚠️ Response missing token field: %o", data);
+         }
+       } else if (response.status === 405) {
+         debugLog("🚫 Request blocked by WAF (status 405), may be due to abnormal headers");
+         break; // Don't retry on WAF blocks (matching Python version)
+       } else {
+         debugLog("HTTP request failed with status: %d", response.status);
+         try {
+           const errorData = await response.json();
+           debugLog("Error response: %o", errorData);
+         } catch {
+           debugLog("Error response text: %s", await response.text());
+         }
+       }
+     } catch (error) {
+       debugLog("Request failed (attempt %d): %v", retryCount + 1, error);
+     }
+
+     retryCount++;
+     if (retryCount < maxRetries) {
+       debugLog("Waiting 2 seconds before retry...");
+       await new Promise(resolve => setTimeout(resolve, 2000));
+     }
+   }
+
+   throw new Error("Failed to obtain anonymous token after 3 attempts");
 }
 
 /**
- * Generate Z.ai API request signature (Updated signature algorithm)
- * Credits: @sarices (ZhengWeiDong) for the Base64 encoding fix
+ * Generate Z.ai API request signature (Updated signature algorithm matching Python version)
  * @param e "requestId,request_id,timestamp,timestamp,user_id,user_id"
  * @param t User's latest message
  * @param timestamp Timestamp (milliseconds)
@@ -1457,20 +1529,20 @@ async function getAnonymousToken(): Promise<string> {
  */
 async function generateSignature(e: string, t: string, timestamp: number): Promise<{ signature: string, timestamp: string }> {
    const timestampStr = String(timestamp);
- 
-   // 1. Base64 encode the message content
+
+   // 1. Base64 encode the message content (matching Python implementation)
    const bodyEncoded = new TextEncoder().encode(t);
    const bodyBase64 = btoa(String.fromCharCode(...bodyEncoded));
- 
-   // 2. Construct the string to sign
+
+   // 2. Construct the string to sign (matching Python implementation)
    const stringToSign = `${e}|${bodyBase64}|${timestampStr}`;
- 
-   // 3. Calculate 5-minute time window
+
+   // 3. Calculate 5-minute time window (matching Python implementation)
    const timeWindow = Math.floor(timestamp / (5 * 60 * 1000));
- 
-   // 4. Get signing key
+
+   // 4. Get signing key (matching Python implementation)
    const secretEnv = Deno.env.get("ZAI_SIGNING_SECRET");
-  let rootKey: Uint8Array;
+   let rootKey: Uint8Array;
 
    if (secretEnv) {
      // Read key from environment variable
@@ -1480,56 +1552,55 @@ async function generateSignature(e: string, t: string, timestamp: number): Promi
      } else {
        // UTF-8 format
        rootKey = new TextEncoder().encode(secretEnv);
-    }
-      debugLog("Using environment variable key: %s", secretEnv.substring(0, 10) + "...");
+     }
+     debugLog("Using environment variable key: %s", secretEnv.substring(0, 10) + "...");
    } else {
-     // Use new default key (consistent with Python version)
-     const defaultKeyHex = "6b65792d40404040292929282928283929292d787878782626262525252525";
-    rootKey = new Uint8Array(defaultKeyHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
-     debugLog("Using default key");
+     // Use Python version default key
+     const defaultKey = "key-@@@@)))()((9))-xxxx&&&%%%%%";
+     rootKey = new TextEncoder().encode(defaultKey);
+     debugLog("Using Python version default key");
    }
- 
-   // 5. First layer HMAC, generate intermediate key
-   const rootKeyBuffer = rootKey.buffer.slice(rootKey.byteOffset, rootKey.byteOffset + rootKey.byteLength) as ArrayBuffer;
-  const firstHmacKey = await crypto.subtle.importKey(
-    "raw",
-    rootKeyBuffer,
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const firstSignatureBuffer = await crypto.subtle.sign(
-    "HMAC",
-    firstHmacKey,
-    new TextEncoder().encode(String(timeWindow))
-  );
-  const intermediateKey = Array.from(new Uint8Array(firstSignatureBuffer))
-    .map((b) => b.toString(16).padStart(2, "0"))
-     .join("");
- 
-   // 5. Second layer HMAC, generate final signature
-   const secondKeyMaterial = new TextEncoder().encode(intermediateKey);
-  const secondHmacKey = await crypto.subtle.importKey(
-    "raw",
-    secondKeyMaterial,
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const finalSignatureBuffer = await crypto.subtle.sign(
-    "HMAC",
-    secondHmacKey,
-    new TextEncoder().encode(stringToSign)
-  );
-  const signature = Array.from(new Uint8Array(finalSignatureBuffer))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
 
-   debugLog("New version signature generated successfully: %s", signature);
-  return {
-    signature,
-    timestamp: timestampStr,
-  };
+   // 5. First layer HMAC, generate intermediate key (matching Python implementation)
+   const firstHmacKey = await crypto.subtle.importKey(
+     "raw",
+     rootKey.buffer.slice(rootKey.byteOffset, rootKey.byteOffset + rootKey.byteLength),
+     { name: "HMAC", hash: "SHA-256" },
+     false,
+     ["sign"]
+   );
+   const firstSignatureBuffer = await crypto.subtle.sign(
+     "HMAC",
+     firstHmacKey,
+     new TextEncoder().encode(String(timeWindow))
+   );
+   const intermediateKey = Array.from(new Uint8Array(firstSignatureBuffer))
+     .map((b) => b.toString(16).padStart(2, "0"))
+     .join("");
+
+   // 6. Second layer HMAC, generate final signature (matching Python implementation)
+   const secondKeyMaterial = new TextEncoder().encode(intermediateKey);
+   const secondHmacKey = await crypto.subtle.importKey(
+     "raw",
+     secondKeyMaterial,
+     { name: "HMAC", hash: "SHA-256" },
+     false,
+     ["sign"]
+   );
+   const finalSignatureBuffer = await crypto.subtle.sign(
+     "HMAC",
+     secondHmacKey,
+     new TextEncoder().encode(stringToSign)
+   );
+   const signature = Array.from(new Uint8Array(finalSignatureBuffer))
+     .map((b) => b.toString(16).padStart(2, "0"))
+     .join("");
+
+   debugLog("Python version signature generated successfully: %s", signature);
+   return {
+     signature,
+     timestamp: timestampStr,
+   };
 }
 
 async function callUpstreamWithHeaders(
@@ -1538,83 +1609,102 @@ async function callUpstreamWithHeaders(
   authToken: string
 ): Promise<Response> {
   try {
-      debugLog("Call upstream API: %s", UPSTREAM_URL);
- 
+      debugLog("Call upstream API (Python version): %s", UPSTREAM_URL);
+
      // 1. Decode JWT to get user_id (multi-field support, consistent with Python version)
-     let userId = "unknown";
-    try {
-      const tokenParts = authToken.split(".");
-      if (tokenParts.length === 3) {
-        const payload = JSON.parse(
-          new TextDecoder().decode(decodeBase64(tokenParts[1]))
+     let userId = "guest";
+     try {
+       const tokenParts = authToken.split(".");
+       if (tokenParts.length === 3) {
+         const payload = JSON.parse(
+           new TextDecoder().decode(decodeBase64(tokenParts[1]))
          );
- 
+
          // Try multiple possible user_id fields (consistent with Python version)
          for (const key of ["id", "user_id", "uid", "sub"]) {
-          const val = payload[key];
-          if (typeof val === "string" || typeof val === "number") {
-            const strVal = String(val);
-            if (strVal.length > 0) {
-              userId = strVal;
+           const val = payload[key];
+           if (typeof val === "string" || typeof val === "number") {
+             const strVal = String(val);
+             if (strVal.length > 0) {
+               userId = strVal;
                debugLog("Parsed user_id from JWT: %s (field: %s)", userId, key);
-              break;
-            }
-          }
-        }
-      }
-    } catch (e) {
+               break;
+             }
+           }
+         }
+       }
+     } catch (e) {
        debugLog("Failed to parse JWT: %v", e);
      }
- 
-     // 2. Prepare parameters needed for signature
-     const timestamp = Date.now();
-    const requestId = crypto.randomUUID();
-    const lastMessageContent = ImageProcessor.extractLastUserContent(upstreamReq.messages);
 
-    if (!lastMessageContent) {
-       throw new Error("Cannot get user message content for signature");
-    }
+     // 2. Prepare parameters needed for signature (matching Python version)
+     const timestamp = Date.now();
+     const requestId = crypto.randomUUID();
+     const lastMessageContent = ImageProcessor.extractLastUserContent(upstreamReq.messages);
+
+     if (!lastMessageContent) {
+        throw new Error("Cannot get user message content for signature");
+     }
 
      const e = `requestId,${requestId},timestamp,${timestamp},user_id,${userId}`;
- 
-     // 3. Generate new signature
+
+     // 3. Generate signature (matching Python version)
      const { signature } = await generateSignature(
       e,
       lastMessageContent,
       timestamp
     );
-     debugLog("Generate new version signature: %s", signature);
+     debugLog("Generate Python version signature: %s", signature);
 
+    // 4. Build request body (matching Python version structure)
     const reqBody = JSON.stringify(upstreamReq);
-      debugLog("Upstream request body: %s", reqBody);
- 
-     // 4. Generate smart browser headers
-     const smartHeaders = await SmartHeaderGenerator.generateHeaders(refererChatID);
- 
-     // 5. Generate complete browser fingerprint parameters
-     const fingerprintParams = BrowserFingerprintGenerator.generateFingerprintParams(
-      timestamp,
-      requestId,
-      authToken,
-      refererChatID
-     );
- 
-     // 6. Build complete URL parameters
-     const allParams = {
-      ...fingerprintParams,
-      signature_timestamp: timestamp.toString(),
+    debugLog("Upstream request body: %s", reqBody);
+
+    // 5. Generate smart browser headers (matching Python version)
+    const smartHeaders = await SmartHeaderGenerator.generateHeaders(refererChatID);
+
+    // 6. Build query parameters (matching Python version)
+    const queryParams = {
+      "timestamp": timestamp.toString(),
+      "requestId": requestId,
+      "user_id": userId,
+      "version": "0.0.1",
+      "platform": "web",
+      "token": authToken,
+      "current_url": refererChatID ? `${ORIGIN_BASE}/c/${refererChatID}` : ORIGIN_BASE,
+      "pathname": refererChatID ? `/c/${refererChatID}` : "/",
+      "search": "",
+      "hash": "",
+      "host": "chat.z.ai",
+      "hostname": "chat.z.ai",
+      "protocol": "https:",
+      "referrer": "",
+      "title": "Z.ai Chat - Free AI powered by GLM-4.6 & GLM-4.5",
+      "timezone_offset": "-480",
+      "local_time": new Date(timestamp).toISOString().replace('T', ' ').substring(0, 23) + 'Z',
+      "utc_time": new Date(timestamp).toUTCString(),
+      "is_mobile": "false",
+      "is_touch": "false",
+      "max_touch_points": "10",
+      "browser_name": "Chrome",
+      "os_name": "Windows",
+      "signature_timestamp": timestamp.toString(),
     };
 
-    const params = new URLSearchParams(allParams);
-     const fullURL = `${UPSTREAM_URL}?${params.toString()}`;
- 
-     // 7. Merge headers
-     const finalHeaders = {
+    const params = new URLSearchParams(queryParams);
+    const fullURL = `${UPSTREAM_URL}?${params.toString()}`;
+
+    // 7. Merge headers (matching Python version)
+    const finalHeaders = {
       ...smartHeaders,
       "Authorization": `Bearer ${authToken}`,
       "X-Signature": signature,
       "Accept": "application/json, text/event-stream",
     };
+
+    debugLog("Python version request details:");
+    debugLog("  URL: %s", fullURL);
+    debugLog("  Headers: Authorization=Bearer *****, X-Signature=%s", signature.substring(0, 16));
 
     const response = await fetch(fullURL, {
       method: "POST",
@@ -1622,18 +1712,18 @@ async function callUpstreamWithHeaders(
       body: reqBody,
     });
 
-      debugLog("Upstream response status: %d %s", response.status, response.statusText);
- 
-     // 8. Mark token as valid on success
-     tokenPool.markSuccess(authToken);
+    debugLog("Upstream response status: %d %s", response.status, response.statusText);
+
+    // 8. Mark token as valid on success
+    tokenPool.markSuccess(authToken);
 
     return response;
    } catch (error) {
       debugLog("Failed to call upstream: %v", error);
- 
+
      // Try switching token on failure
      try {
-      const newToken = await tokenPool.switchToNext();
+      const newToken = tokenPool.switchToNext();
        if (newToken) {
           debugLog("Switch to new token retry: %s", newToken.substring(0, 20));
          // Retry recursively once, avoid infinite loop
@@ -2436,7 +2526,7 @@ async function handleAnthropicMessages(request: Request): Promise<Response> {
 }
 
 async function handleAnthropicStreamResponse(
-  upstreamReq: any,
+  upstreamReq: UpstreamRequest,
   chatID: string,
   msgID: string,
   authToken: string,
@@ -2496,12 +2586,12 @@ async function handleAnthropicStreamResponse(
             await writer.write(new TextEncoder().encode(chunk));
           }
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         debugLog("Error in Anthropic stream processing: %v", error);
       } finally {
         await writer.close();
       }
-    })().catch((error: any) => {
+    })().catch((error: unknown) => {
       debugLog("Error while processing Anthropic upstream stream: %v", error);
     });
 
@@ -2541,7 +2631,7 @@ async function handleAnthropicStreamResponse(
 }
 
 async function handleAnthropicNonStreamResponse(
-  upstreamReq: any,
+  upstreamReq: UpstreamRequest,
   chatID: string,
   msgID: string,
   authToken: string,
@@ -2804,11 +2894,6 @@ async function handleChatCompletions(request: Request): Promise<Response> {
   const thinkTagsModeHeader = request.headers.get("X-Think-Tags-Mode");
 
   // Parse header values to boolean (default to model capabilities if not specified)
-  const parseFeatureHeader = (headerValue: string | null, defaultValue: boolean): boolean => {
-    if (headerValue === null) return defaultValue;
-    const lowerValue = headerValue.toLowerCase().trim();
-    return lowerValue === "true" || lowerValue === "1" || lowerValue === "yes";
-  };
 
   // Parse think tags mode header with validation
   const parseThinkTagsMode = (headerValue: string | null): "strip" | "thinking" | "think" | "raw" | "separate" => {
@@ -3030,97 +3115,60 @@ async function handleChatCompletions(request: Request): Promise<Response> {
   const chatID = (typeof incomingBody === "object" && incomingBody?.chat_id) ? String(incomingBody.chat_id) : `${Date.now()}-${Math.floor(Date.now() / 1000)}`;
   const msgID = (typeof incomingBody === "object" && incomingBody?.id) ? String(incomingBody.id) : Date.now().toString();
 
-   // Get MCP server list for model
-  const mcpServers = ModelCapabilityDetector.getMCPServersForModel(capabilities);
-  const hiddenMcpFeatures = ModelCapabilityDetector.getHiddenMCPFeatures();
+   // Get MCP server list for model (consistent with Python version)
+   const mcpServers = ModelCapabilityDetector.getMCPServersForModel(capabilities);
+   const hiddenMcpFeatures = ModelCapabilityDetector.getHiddenMCPFeatures();
 
    // Extract last user message content (for signature)
-  const lastUserContent = ImageProcessor.extractLastUserContent(req.messages);
+   const lastUserContent = ImageProcessor.extractLastUserContent(req.messages);
 
-   // Construct upstream request (enhanced)
-  const upstreamReq: UpstreamRequest = {
+   // Determine model characteristics (consistent with Python version)
+   const isThinking = capabilities.thinking;
+   const isSearch = capabilities.search || capabilities.advancedSearch;
+
+   // Construct upstream request (matching Python version exactly)
+   const upstreamReq: UpstreamRequest = {
      stream: true, // Always fetch upstream as stream
-    chat_id: chatID,
-    id: msgID,
-    model: modelConfig.upstreamId,
-    messages: finalMessages,
-    params: modelConfig.defaultParams,
-    features: {
-      image_generation: false,
-      web_search: capabilities.search || capabilities.advancedSearch,
-      auto_web_search: capabilities.search || capabilities.advancedSearch,
-      preview_mode: capabilities.search || capabilities.advancedSearch,
-      flags: [],
-      features: hiddenMcpFeatures,
-      enable_thinking: capabilities.thinking,
-    },
-    background_tasks: {
-      title_generation: false,
-      tags_generation: false,
-    },
-    mcp_servers: mcpServers,
+     model: modelConfig.upstreamId,
+     messages: finalMessages,
+     signature_prompt: lastUserContent, // Used for signature generation
+     params: modelConfig.defaultParams,
+     features: {
+       image_generation: false,
+       web_search: isSearch,
+       auto_web_search: isSearch,
+       preview_mode: isSearch,
+       flags: [],
+       features: hiddenMcpFeatures,
+       enable_thinking: isThinking,
+     },
+     background_tasks: {
+       title_generation: false,
+       tags_generation: false,
+     },
+     mcp_servers: mcpServers.length > 0 ? mcpServers : undefined,
      model_item: {
        id: modelConfig.upstreamId,
        name: req.model, // Use original request model name
-       owned_by: "openai",
-      openai: {
-        id: modelConfig.upstreamId,
-        name: modelConfig.upstreamId,
-        owned_by: "openai",
-        openai: {
-          id: modelConfig.upstreamId,
-        },
-        urlIdx: 1,
-      },
-      urlIdx: 1,
-      info: {
-        id: modelConfig.upstreamId,
-        user_id: "api-user",
-        base_model_id: null,
-        name: modelConfig.name,
-        params: modelConfig.defaultParams,
-        meta: {
-          profile_image_url: "/static/favicon.png",
-          description: capabilities.vision
-            ? "Advanced visual understanding and analysis"
-            : capabilities.thinking
-            ? "Advanced reasoning and thinking model"
-            : capabilities.search
-            ? "Web search enhanced model"
-            : "Most advanced model, proficient in coding and tool use",
-          capabilities: {
-            vision: capabilities.vision,
-            citations: false,
-            preview_mode: capabilities.search || capabilities.advancedSearch,
-            web_search: capabilities.search || capabilities.advancedSearch,
-            language_detection: false,
-            restore_n_source: false,
-            mcp: capabilities.mcp,
-            file_qa: capabilities.mcp,
-            returnFc: true,
-            returnThink: capabilities.thinking,
-            think: capabilities.thinking,
-          },
-        },
-      },
-    },
-    tool_servers: [],
-    variables: {
-      "{{USER_NAME}}": `Guest-${Date.now()}`,
-      "{{USER_LOCATION}}": "Unknown",
-      "{{CURRENT_DATETIME}}": new Date().toLocaleString("zh-CN"),
-      "{{CURRENT_DATE}}": new Date().toLocaleDateString("zh-CN"),
-      "{{CURRENT_TIME}}": new Date().toLocaleTimeString("zh-CN"),
-      "{{CURRENT_WEEKDAY}}": new Date().toLocaleDateString("zh-CN", {
-        weekday: "long",
-      }),
-      "{{CURRENT_TIMEZONE}}": "Asia/Shanghai",
-      "{{USER_LANGUAGE}}": "zh-CN",
+       owned_by: "z.ai"
      },
-     // Add file list (if there are uploaded images)
+     chat_id: chatID,
+     id: msgID,
+     tool_servers: [],
+     variables: {
+       "{{USER_NAME}}": "Guest",
+       "{{USER_LOCATION}}": "Unknown",
+       "{{CURRENT_DATETIME}}": new Date().toLocaleString("zh-CN"),
+       "{{CURRENT_DATE}}": new Date().toLocaleDateString("zh-CN"),
+       "{{CURRENT_TIME}}": new Date().toLocaleTimeString("zh-CN"),
+       "{{CURRENT_WEEKDAY}}": new Date().toLocaleDateString("zh-CN", {
+         weekday: "long",
+       }),
+       "{{CURRENT_TIMEZONE}}": "Asia/Shanghai",
+       "{{USER_LANGUAGE}}": "zh-CN",
+     },
+     // Add file list (if there are uploaded images and not vision model)
      ...(uploadedFiles.length > 0 && !capabilities.vision ? { files: uploadedFiles } : {}),
-     // Add signature prompt
-     signature_prompt: lastUserContent,
    };
  
    // Token already acquired earlier
@@ -3445,121 +3493,24 @@ function getContentType(path: string): string {
 }
 
 // Main HTTP server entrypoint
-async function main() {
-console.log(`OpenAI-compatible API server starting`);
-console.log(`Supported models: ${SUPPORTED_MODELS.map(m => `${m.id} (${m.name})`).join(', ')}`);
-console.log(`Upstream: ${UPSTREAM_URL}`);
-console.log(`Debug mode: ${DEBUG_MODE}`);
-console.log(`Default streaming: ${DEFAULT_STREAM}`);
-console.log(`Dashboard enabled: ${DASHBOARD_ENABLED}`);
+function main() {
+  console.log(`OpenAI-compatible API server starting`);
+  console.log(`Supported models: ${SUPPORTED_MODELS.map(m => `${m.id} (${m.name})`).join(', ')}`);
+  console.log(`Upstream: ${UPSTREAM_URL}`);
+  console.log(`Debug mode: ${DEBUG_MODE}`);
+  console.log(`Default streaming: ${DEFAULT_STREAM}`);
+  console.log(`Dashboard enabled: ${DASHBOARD_ENABLED}`);
 
-// Detect if running on Deno Deploy
-const isDenoDeploy = Deno.env.get("DENO_DEPLOYMENT_ID") !== undefined;
-
-if (isDenoDeploy) {
-  console.log("Running on Deno Deploy");
-  Deno.serve(handleRequest);
-} else {
   const port = parseInt(Deno.env.get("PORT") || "9090");
-  console.log(`Running locally on port: ${port}`);
+  console.log(`Running on port: ${port}`);
 
   if (DASHBOARD_ENABLED) {
     console.log(`Dashboard enabled at: http://localhost:${port}/dashboard`);
   }
 
-  const server = Deno.listen({ port });
-
-  for await (const conn of server) {
-    handleHttp(conn);
-  }
-}
+  Deno.serve({ port, handler: handleRequest });
 }
 
-// Handle HTTP connection (self-hosted/local)
-async function handleHttp(conn: Deno.Conn) {
-  // Note: Deno.serveHttp is deprecated but still works for now
-  // Future migration to Deno 2 will require refactoring this entire section
-  const httpConn = Deno.serveHttp(conn);
-
-  while (true) {
-    const requestEvent = await httpConn.nextRequest();
-    if (!requestEvent) break;
-
-    const { request, respondWith } = requestEvent;
-    const url = new URL(request.url);
-    const startTime = Date.now();
-    const userAgent = request.headers.get("User-Agent") || "";
-
-    try {
-      // Routing
-      if (url.pathname === "/") {
-        const response = await handleIndex(request);
-        await respondWith(response);
-        recordRequestStats(startTime, url.pathname, response.status);
-        addLiveRequest(request.method, url.pathname, response.status, Date.now() - startTime, userAgent);
-      } else if (url.pathname.startsWith("/ui/")) {
-        const response = await handleStatic(request);
-        await respondWith(response);
-        recordRequestStats(startTime, url.pathname, response.status);
-        addLiveRequest(request.method, url.pathname, response.status, Date.now() - startTime, userAgent);
-      } else if (url.pathname === "/v1/models") {
-        const response = await handleModels(request);
-        await respondWith(response);
-        recordRequestStats(startTime, url.pathname, response.status);
-        addLiveRequest(request.method, url.pathname, response.status, Date.now() - startTime, userAgent);
-      } else if (url.pathname === "/v1/chat/completions") {
-        const response = await handleChatCompletions(request);
-        await respondWith(response);
-        // stats recorded inside handleChatCompletions
-      } else if (url.pathname === "/anthropic/v1/models") {
-        const response = handleAnthropicModels(request);
-        await respondWith(response);
-        recordRequestStats(startTime, url.pathname, response.status);
-        addLiveRequest(request.method, url.pathname, response.status, Date.now() - startTime, userAgent);
-      } else if (url.pathname === "/anthropic/v1/messages") {
-        const response = await handleAnthropicMessages(request);
-        await respondWith(response);
-        // stats recorded inside handleAnthropicMessages
-      } else if (url.pathname === "/anthropic/v1/messages/count_tokens") {
-        const response = await handleAnthropicTokenCount(request);
-        await respondWith(response);
-        recordRequestStats(startTime, url.pathname, response.status);
-        addLiveRequest(request.method, url.pathname, response.status, Date.now() - startTime, userAgent);
-      } else if (url.pathname === "/docs") {
-        const response = await handleDocs(request);
-        await respondWith(response);
-        recordRequestStats(startTime, url.pathname, response.status);
-        addLiveRequest(request.method, url.pathname, response.status, Date.now() - startTime, userAgent);
-      } else if (url.pathname === "/dashboard" && DASHBOARD_ENABLED) {
-        const response = await handleDashboard(request);
-        await respondWith(response);
-        recordRequestStats(startTime, url.pathname, response.status);
-        addLiveRequest(request.method, url.pathname, response.status, Date.now() - startTime, userAgent);
-      } else if (url.pathname === "/dashboard/stats" && DASHBOARD_ENABLED) {
-        const response = await handleDashboardStats(request);
-        await respondWith(response);
-        recordRequestStats(startTime, url.pathname, response.status);
-        addLiveRequest(request.method, url.pathname, response.status, Date.now() - startTime, userAgent);
-      } else if (url.pathname === "/dashboard/requests" && DASHBOARD_ENABLED) {
-        const response = await handleDashboardRequests(request);
-        await respondWith(response);
-        recordRequestStats(startTime, url.pathname, response.status);
-        addLiveRequest(request.method, url.pathname, response.status, Date.now() - startTime, userAgent);
-      } else {
-        const response = await handleOptions(request);
-        await respondWith(response);
-        recordRequestStats(startTime, url.pathname, response.status);
-        addLiveRequest(request.method, url.pathname, response.status, Date.now() - startTime, userAgent);
-      }
-    } catch (error) {
-      debugLog("Error handling request: %v", error);
-      const response = new Response("Internal Server Error", { status: 500 });
-      await respondWith(response);
-      recordRequestStats(startTime, url.pathname, 500);
-      addLiveRequest(request.method, url.pathname, 500, Date.now() - startTime, userAgent);
-    }
-  }
-}
 
 // Handle HTTP requests (Deno Deploy)
 async function handleRequest(request: Request): Promise<Response> {
