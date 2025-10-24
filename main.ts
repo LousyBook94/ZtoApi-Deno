@@ -2719,6 +2719,12 @@ function handleModels(request: Request): Response {
   });
 }
 
+/**
+ * Proxies an OpenAI-compatible chat completions request to the upstream Z.ai service while handling model capability detection, multimodal image processing, token selection/rotation, and thinking-content transformation.
+ *
+ * @param request - Incoming OpenAI-style HTTP request for chat completions, which may include feature-control headers (e.g., thinking, web-search, image-generation), think-tags mode, and multimodal message content.
+ * @returns An HTTP Response containing either a proxied streaming or non-streaming completion from the upstream model, or an error response with appropriate status codes for authentication failures, invalid input, image-processing errors, or upstream failures.
+ */
 async function handleChatCompletions(request: Request): Promise<Response> {
   const startTime = Date.now();
   const url = new URL(request.url);
