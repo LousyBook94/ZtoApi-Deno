@@ -2719,6 +2719,12 @@ function handleModels(request: Request): Response {
   });
 }
 
+/**
+ * Handle an OpenAI-compatible chat completions HTTP request: validate headers, parse and preprocess messages (including multimodal image handling and thinking-mode transformation), obtain or rotate an upstream token, construct a signed upstream request, and return either a streaming or non-streaming completion response.
+ *
+ * @param request - The incoming HTTP Request for a chat completion
+ * @returns An HTTP Response containing the model completion payload (streaming SSE or JSON) or an error status and message on failure
+ */
 async function handleChatCompletions(request: Request): Promise<Response> {
   const startTime = Date.now();
   const url = new URL(request.url);
