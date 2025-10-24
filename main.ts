@@ -114,7 +114,14 @@ interface LiveRequest {
 }
 
 /**
- * OpenAI-compatible request structure (chat completions)
+ * OpenAI-compatible request structure for chat completions.
+ * @interface OpenAIRequest
+ * @property {string} model - The model to use for the request.
+ * @property {Message[]} messages - The messages in the conversation.
+ * @property {boolean} [stream] - Whether to stream the response.
+ * @property {number} [temperature] - Sampling temperature for the model.
+ * @property {number} [max_tokens] - Maximum number of tokens to generate.
+ * @property {boolean} [reasoning] - Whether to enable reasoning mode.
  */
 interface OpenAIRequest {
   model: string;
@@ -143,7 +150,21 @@ interface Message {
 }
 
 /**
- * Upstream request structure (to Z.ai)
+ * Upstream request structure sent to Z.ai API.
+ * @interface UpstreamRequest
+ * @property {boolean} stream - Whether the response should be streamed.
+ * @property {string} model - The model identifier.
+ * @property {Message[]} messages - The conversation messages.
+ * @property {Record<string, unknown>} params - Additional parameters.
+ * @property {Record<string, unknown>} features - Feature flags.
+ * @property {Record<string, boolean>} [background_tasks] - Background tasks to run.
+ * @property {string} [chat_id] - Chat session identifier.
+ * @property {string} [id] - Request identifier.
+ * @property {string[]} [mcp_servers] - List of MCP servers to use.
+ * @property {object} [model_item] - Model item details.
+ * @property {string[]} [tool_servers] - List of tool servers.
+ * @property {Record<string, string>} [variables] - Variables for the request.
+ * @property {string} [signature_prompt] - Prompt for signature generation.
  */
 interface UpstreamRequest {
   stream: boolean;
@@ -202,7 +223,11 @@ interface Usage {
 }
 
 /**
- * MCP Server Configuration
+ * Configuration for an MCP (Model Context Protocol) server.
+ * @interface MCPServerConfig
+ * @property {string} name - The name of the MCP server.
+ * @property {string} description - A description of what the MCP server does.
+ * @property {boolean} enabled - Whether the MCP server is enabled.
  */
 interface MCPServerConfig {
   name: string;
@@ -211,7 +236,13 @@ interface MCPServerConfig {
 }
 
 /**
- * Model Capabilities
+ * Capabilities of a model, indicating supported features.
+ * @interface ModelCapabilities
+ * @property {boolean} thinking - Whether the model supports thinking/reasoning.
+ * @property {boolean} search - Whether the model supports basic search.
+ * @property {boolean} advancedSearch - Whether the model supports advanced search.
+ * @property {boolean} vision - Whether the model supports vision/multimodal input.
+ * @property {boolean} mcp - Whether the model supports MCP (Model Context Protocol).
  */
 interface ModelCapabilities {
   thinking: boolean;
@@ -222,7 +253,13 @@ interface ModelCapabilities {
 }
 
 /**
- * Uploaded File structure
+ * Structure representing an uploaded file.
+ * @interface UploadedFile
+ * @property {string} id - Unique identifier for the file.
+ * @property {string} filename - The name of the file.
+ * @property {number} size - The size of the file in bytes.
+ * @property {string} type - The MIME type of the file.
+ * @property {string} url - The URL to access the file.
  */
 interface UploadedFile {
   id: string;
@@ -1611,8 +1648,11 @@ async function callUpstreamWithHeaders(
  }
 
 /**
- * Transform thinking content based on specified mode
- * Returns either a string (for "strip", "thinking", "think", "raw" modes) or an object with reasoning and content
+ * Transforms thinking content based on the specified mode.
+ * Returns either a string (for "strip", "thinking", "think", "raw" modes) or an object with reasoning and content (for "separate" mode).
+ * @param {string} content - The content to transform, containing thinking tags.
+ * @param {"strip" | "thinking" | "think" | "raw" | "separate"} [mode=THINK_TAGS_MODE] - The transformation mode.
+ * @returns {string | { reasoning: string; content: string }} The transformed content.
  */
 export function transformThinking(content: string, mode: "strip" | "thinking" | "think" | "raw" | "separate" = THINK_TAGS_MODE as "strip" | "thinking" | "think" | "raw" | "separate"): string | { reasoning: string; content: string } {
 
@@ -1737,6 +1777,15 @@ export function transformThinking(content: string, mode: "strip" | "thinking" | 
   return result;
 }
 
+/**
+ * Processes the upstream stream response, transforming thinking content and writing to the client stream.
+ * @param {ReadableStream<Uint8Array>} body - The upstream response body stream.
+ * @param {WritableStreamDefaultWriter<Uint8Array>} writer - The writer for the client response stream.
+ * @param {TextEncoder} encoder - Encoder for writing data.
+ * @param {string} modelName - The name of the model.
+ * @param {"strip" | "thinking" | "think" | "raw" | "separate"} [thinkTagsMode=THINK_TAGS_MODE] - Mode for handling thinking tags.
+ * @returns {Promise<Usage | null>} The usage statistics if available.
+ */
 async function processUpstreamStream(
   body: ReadableStream<Uint8Array>,
   writer: WritableStreamDefaultWriter<Uint8Array>,
@@ -2719,6 +2768,13 @@ function handleModels(request: Request): Response {
   });
 }
 
+/**
+ * Handles OpenAI-compatible chat completions requests.
+ * Processes the request, validates API key, handles image uploads, and proxies to upstream Z.ai API.
+ * Supports both streaming and non-streaming responses, with reasoning mode.
+ * @param {Request} request - The incoming HTTP request.
+ * @returns {Promise<Response>} The response to send back to the client.
+ */
 async function handleChatCompletions(request: Request): Promise<Response> {
   const startTime = Date.now();
   const url = new URL(request.url);
@@ -3088,6 +3144,19 @@ async function handleChatCompletions(request: Request): Promise<Response> {
   }
 }
 
+/**
+ * Handles streaming response for chat completions.
+ * @param {UpstreamRequest} upstreamReq - The request to send upstream.
+ * @param {string} chatID - The chat session ID.
+ * @param {string} authToken - The authentication token.
+ * @param {number} startTime - The start time for metrics.
+ * @param {string} path - The request path.
+ * @param {string} userAgent - The user agent string.
+ * @param {OpenAIRequest} req - The original OpenAI request.
+ * @param {ModelConfig} modelConfig - The model configuration.
+ * @param {"strip" | "thinking" | "think" | "raw" | "separate"} thinkTagsMode - Mode for handling thinking tags.
+ * @returns {Promise<Response>} The streaming response.
+ */
 async function handleStreamResponse(
   upstreamReq: UpstreamRequest,
   chatID: string,
