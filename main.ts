@@ -73,7 +73,7 @@ declare namespace Deno {
 
   function listen(options: { port: number }): Listener;
   function serveHttp(conn: Conn): HttpConn;
-  function serve(handler: (request: Request) => Promise<Response>): void;
+  function serve(options: { port: number; handler: (request: Request) => Promise<Response> }): void;
 
   namespace env {
     function get(key: string): string | undefined;
@@ -320,7 +320,7 @@ const THINK_TAGS_MODE = "think"; // options: "strip", "thinking", "think", "raw"
   */
 class ModelCapabilityDetector {
    /**
-    * Detect model's advanced capabilities
+    * Detect model's advanced capabilities (matching Python version exactly)
     */
   static detectCapabilities(modelId: string, reasoning?: boolean): ModelCapabilities {
     const normalizedModelId = modelId.toLowerCase();
@@ -361,20 +361,21 @@ class ModelCapabilityDetector {
   }
 
    private static supportsMCP(modelId: string): boolean {
-     // Most advanced models support MCP
+     // Most advanced models support MCP (matching Python version exactly)
      return this.isThinkingModel(modelId) ||
             this.isSearchModel(modelId) ||
             this.isAdvancedSearchModel(modelId);
    }
 
    /**
-    * Get MCP server list for model
+    * Get MCP server list for model (matching Python version exactly)
     */
   static getMCPServersForModel(capabilities: ModelCapabilities): string[] {
     const servers: string[] = [];
 
     if (capabilities.advancedSearch) {
       servers.push("advanced-search");
+      debugLog("🔍 Detected advanced search model, adding advanced-search MCP server");
     } else if (capabilities.search) {
       servers.push("deep-web-search");
     }
@@ -389,14 +390,16 @@ class ModelCapabilityDetector {
   }
 
    /**
-    * Get hidden MCP features list
+    * Get hidden MCP features list (matching Python version exactly)
     */
   static getHiddenMCPFeatures(): Array<{ type: string; server: string; status: string }> {
     return [
       { type: "mcp", server: "vibe-coding", status: "hidden" },
       { type: "mcp", server: "ppt-maker", status: "hidden" },
       { type: "mcp", server: "image-search", status: "hidden" },
-      { type: "mcp", server: "deep-research", status: "hidden" }
+      { type: "mcp", server: "deep-research", status: "hidden" },
+      { type: "tool_selector", server: "tool_selector", status: "hidden" },
+      { type: "mcp", server: "advanced-search", status: "hidden" }
     ];
   }
 }
@@ -410,7 +413,7 @@ class SmartHeaderGenerator {
    private static cacheExpiry: number = 0;
    private static readonly CACHE_DURATION = 5 * 60 * 1000; // 5-minute cache
 
-   // Browser configurations matching Python version
+   // Browser configurations matching Python version exactly
    private static readonly browserConfigs = [
      {
        ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
@@ -440,7 +443,7 @@ class SmartHeaderGenerator {
    ];
 
     /**
-     * Generate smart browser headers (matching Python version)
+     * Generate smart browser headers (matching Python version exactly)
      */
     static async generateHeaders(chatId: string = ""): Promise<Record<string, string>> {
       // Check cache
@@ -469,7 +472,7 @@ class SmartHeaderGenerator {
       // Randomly select browser configuration (weighted towards Chrome/Edge like Python version)
       const config = this.browserConfigs[Math.floor(Math.random() * this.browserConfigs.length)];
 
-      // Generate sec-ch-ua based on user agent (matching Python logic)
+      // Generate sec-ch-ua based on user agent (matching Python logic exactly)
       let secChUa = config.secChUa;
       let secChUaPlatform = '"Windows"';
 
@@ -489,7 +492,7 @@ class SmartHeaderGenerator {
       const referer = chatId ? `${ORIGIN_BASE}/c/${chatId}` : `${ORIGIN_BASE}/`;
 
       return {
-        // Basic headers (matching Python version)
+        // Basic headers (matching Python version exactly)
         "Accept": "application/json, text/event-stream",
         "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
         "Accept-Encoding": "gzip, deflate, br",
@@ -498,7 +501,7 @@ class SmartHeaderGenerator {
         "Content-Type": "application/json",
         "Pragma": "no-cache",
 
-        // Browser-specific headers (matching Python version)
+        // Browser-specific headers (matching Python version exactly)
         "User-Agent": config.ua,
         "Sec-Ch-Ua": secChUa,
         "Sec-Ch-Ua-Mobile": "?0",
@@ -522,12 +525,12 @@ class SmartHeaderGenerator {
      this.cacheExpiry = 0;
       debugLog("Header cache cleared");
    }
-}
+ }
 
 /**
   * Browser Fingerprint Parameter Generator
   */
-class BrowserFingerprintGenerator {
+class _BrowserFingerprintGenerator {
    /**
     * Generate complete browser fingerprint parameters (matching Python version)
     */
@@ -615,16 +618,16 @@ class BrowserFingerprintGenerator {
 
        // Signature parameters (matching Python version)
        "signature_timestamp": timestamp.toString(),
-    };
-  }
+     };
+   }
 }
 
 // Dynamic FE version (will be fetched from website)
 let X_FE_VERSION = "prod-fe-1.0.95"; // fallback default
 const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0";
-const SEC_CH_UA = "\"Chromium\";v=\"140\", \"Not=A?Brand\";v=\"24\", \"Microsoft Edge\";v=\"140\"";
-const SEC_CH_UA_MOB = "?0";
-const SEC_CH_UA_PLAT = "\"Windows\"";
+const _SEC_CH_UA = "\"Chromium\";v=\"140\", \"Not=A?Brand\";v=\"24\", \"Microsoft Edge\";v=\"140\"";
+const _SEC_CH_UA_MOB = "?0";
+const _SEC_CH_UA_PLAT = "\"Windows\"";
 const ORIGIN_BASE = "https://chat.z.ai";
 
 /**
@@ -698,18 +701,19 @@ class TokenPool {
   }
 
    /**
-    * Initialize Token pool
+    * Initialize Token pool (matching Python version exactly)
     */
    private initializeTokens(): void {
      // Read multiple tokens from environment variable, separated by commas
      const tokenEnv = Deno.env.get("ZAI_TOKENS");
     if (tokenEnv) {
       const tokenList = tokenEnv.split(",").map(t => t.trim()).filter(t => t.length > 0);
-      this.tokens = tokenList.map(token => ({
+      this.tokens = tokenList.map((token, _index) => ({
         token,
         isValid: true,
         lastUsed: 0,
-        failureCount: 0
+        failureCount: 0,
+        isAnonymous: false
       }));
       debugLog("Token pool initialized, contains %d tokens", this.tokens.length);
      } else if (ZAI_TOKEN) {
@@ -718,7 +722,8 @@ class TokenPool {
         token: ZAI_TOKEN,
         isValid: true,
         lastUsed: 0,
-        failureCount: 0
+        failureCount: 0,
+        isAnonymous: false
       }];
       debugLog("Using single token configuration");
     } else {
@@ -727,7 +732,7 @@ class TokenPool {
   }
 
    /**
-    * Get next available token
+    * Get next available token (matching Python version exactly)
     */
    async getToken(): Promise<string> {
      // If there are configured tokens, try to use them
@@ -744,14 +749,14 @@ class TokenPool {
   }
 
    /**
-    * Get next valid configured token
+    * Get next valid configured token (matching Python version exactly)
     */
   private getNextValidToken(): TokenInfo | null {
     const startIndex = this.currentIndex;
 
     do {
       const tokenInfo = this.tokens[this.currentIndex];
-      if (tokenInfo.isValid && tokenInfo.failureCount < 3) {
+      if (tokenInfo.isValid && tokenInfo.failureCount < 3 && !tokenInfo.isAnonymous) {
         return tokenInfo;
       }
       this.currentIndex = (this.currentIndex + 1) % this.tokens.length;
@@ -761,7 +766,7 @@ class TokenPool {
   }
 
    /**
-    * Switch to next token (called when current token fails)
+    * Switch to next token (called when current token fails) - matching Python version exactly
     */
   switchToNext(): string | null {
      if (this.tokens.length === 0) return null;
@@ -778,7 +783,7 @@ class TokenPool {
      this.currentIndex = (this.currentIndex + 1) % this.tokens.length;
     const nextToken = this.tokens[this.currentIndex];
 
-    if (nextToken && nextToken.isValid) {
+    if (nextToken && nextToken.isValid && !nextToken.isAnonymous) {
        debugLog("Switch to next token: %s", nextToken.token.substring(0, 20));
       nextToken.lastUsed = Date.now();
        return nextToken.token;
@@ -788,18 +793,19 @@ class TokenPool {
   }
 
    /**
-    * Reset token status (after successful call)
+    * Reset token status (after successful call) - matching Python version exactly
     */
   markSuccess(token: string): void {
     const tokenInfo = this.tokens.find(t => t.token === token);
     if (tokenInfo) {
       tokenInfo.failureCount = 0;
       tokenInfo.isValid = true;
+      tokenInfo.lastUsed = Date.now();
     }
   }
 
    /**
-    * Get anonymous token
+    * Get anonymous token (matching Python version exactly)
     */
   private async getAnonymousToken(): Promise<string> {
      const now = Date.now();
@@ -873,10 +879,10 @@ class ImageProcessor {
    /**
     * Upload image to Z.AI server
     */
-  static async uploadImage(imageUrl: string, token: string): Promise<UploadedFile | null> {
+  static async uploadImage(imageUrl: string, token: string, chatId: string = ""): Promise<UploadedFile | null> {
     try {
         debugLog("Start uploading image: %s", imageUrl.substring(0, 50) + "...");
- 
+
        // Process base64 image data
        let imageData: Uint8Array;
       let filename: string;
@@ -910,25 +916,27 @@ class ImageProcessor {
       } else {
         throw new Error("Unsupported image URL format");
        }
- 
+
        // Create FormData
        const formData = new FormData();
       const arrayBuffer = imageData.buffer.slice(imageData.byteOffset, imageData.byteOffset + imageData.byteLength) as ArrayBuffer;
       const blob = new Blob([arrayBuffer], { type: mimeType });
        formData.append("file", blob, filename);
- 
-       // Upload to Z.AI (matching Python version headers)
+
+       // Upload to Z.AI (matching Python version headers exactly)
        const uploadResponse = await fetch("https://chat.z.ai/api/v1/files/", {
          method: "POST",
          headers: {
-           "Authorization": `Bearer ${token}`,
-           "Origin": ORIGIN_BASE,
-           "Referer": `${ORIGIN_BASE}/`,
            "Accept": "*/*",
            "Accept-Language": "zh-CN,zh;q=0.9",
+           "Authorization": `Bearer ${token}`,
            "Cache-Control": "no-cache",
            "Connection": "keep-alive",
+           "Content-Type": "multipart/form-data",
+           "DNT": "1",
+           "Origin": ORIGIN_BASE,
            "Pragma": "no-cache",
+           "Referer": chatId ? `${ORIGIN_BASE}/c/${chatId}` : `${ORIGIN_BASE}/`,
            "Sec-Ch-Ua": '"Microsoft Edge";v="141", "Not?A_Brand";v="8", "Chromium";v="141"',
            "Sec-Ch-Ua-Mobile": "?0",
            "Sec-Ch-Ua-Platform": '"Windows"',
@@ -948,8 +956,8 @@ class ImageProcessor {
       const uploadResult = await uploadResponse.json() as { id: string; filename?: string; url: string };
        debugLog("Image upload successful: %s", uploadResult.id);
 
-      // Return file structure consistent with Python version
-       const currentTimestamp = Math.floor(Date.now() / 1000);
+      // Return file structure consistent with Python version exactly
+       const _currentTimestamp = Math.floor(Date.now() / 1000);
        return {
          id: uploadResult.id,
          filename: uploadResult.filename || filename,
@@ -969,7 +977,8 @@ class ImageProcessor {
   static async processImages(
     messages: Message[],
     token: string,
-    isVisionModel: boolean = false
+    isVisionModel: boolean = false,
+    chatId: string = ""
   ): Promise<{ processedMessages: Message[], uploadedFiles: UploadedFile[], uploadedFilesMap: Map<string, UploadedFile> }> {
     const processedMessages: Message[] = [];
     const uploadedFiles: UploadedFile[] = [];
@@ -989,12 +998,12 @@ class ImageProcessor {
         for (const part of msg.content) {
           if (part.type === "image_url" && part.image_url?.url) {
              const imageUrl = part.image_url.url;
- 
-             // Upload image
-             const uploadedFile = await this.uploadImage(imageUrl, token);
+
+             // Upload image with chatId for proper referer
+             const uploadedFile = await this.uploadImage(imageUrl, token, chatId);
              if (uploadedFile) {
                if (isVisionModel) {
-                 // GLM-4.5V: Keep in message, but convert URL format
+                 // GLM-4.5V: Keep in message, but convert URL format (matching Python version exactly)
                  const newUrl = `${uploadedFile.id}_${uploadedFile.filename}`;
                 newContent.push({
                   type: "image_url",
@@ -1003,16 +1012,23 @@ class ImageProcessor {
                 uploadedFilesMap.set(imageUrl, uploadedFile);
                   debugLog("GLM-4.5V image URL converted: %s -> %s", imageUrl.substring(0, 50), newUrl);
                } else {
-                 // Non-vision model: Add to file list, remove from message
+                 // Non-vision model: Add to file list, remove from message (matching Python version exactly)
                  uploadedFiles.push(uploadedFile);
                  debugLog("Image added to file list: %s", uploadedFile.id);
               }
+            } else {
+              // Upload failed, add error message
+              debugLog("⚠️ Image upload failed");
+              newContent.push({
+                type: "text",
+                text: "[系统提示: 图片上传失败]"
+              });
             }
           } else if (part.type === "text") {
             newContent.push(part);
           }
          }
- 
+
          // If only text content, convert to string format
          if (newContent.length === 1 && newContent[0].type === "text") {
           processedMsg.content = newContent[0].text || "";
@@ -1468,7 +1484,7 @@ async function getAnonymousToken(): Promise<string> {
      try {
        debugLog("Attempting to get anonymous token (attempt %d/%d)", retryCount + 1, maxRetries);
 
-       // Generate dynamic headers for each request (matching Python version)
+       // Generate dynamic headers for each request (matching Python version exactly)
        const dynamicHeaders = await SmartHeaderGenerator.generateHeaders();
 
        const response = await fetch(`${ORIGIN_BASE}/api/v1/auths/`, {
@@ -1483,11 +1499,12 @@ async function getAnonymousToken(): Promise<string> {
        debugLog("Anonymous token response status: %d", response.status);
 
        if (response.status === 200) {
-         const data = await response.json() as { token: string; email?: string };
+         const data = await response.json() as { token: string; email?: string; role?: string };
          if (data.token) {
            // Check if it's a guest token (matching Python version exactly)
            const email = data.email || "";
-           const isGuest = email.includes("@guest.com") || email.includes("Guest-");
+           const role = data.role || "";
+           const isGuest = email.includes("@guest.com") || email.includes("Guest-") || role === "guest";
            const tokenType = isGuest ? "guest" : "authenticated";
            debugLog("✅ Anonymous token obtained successfully (%s): %s...", tokenType, data.token.substring(0, 20));
            return data.token;
@@ -1518,7 +1535,7 @@ async function getAnonymousToken(): Promise<string> {
    }
 
    throw new Error("Failed to obtain anonymous token after 3 attempts");
-}
+ }
 
 /**
  * Generate Z.ai API request signature (Updated signature algorithm matching Python version)
@@ -1530,17 +1547,17 @@ async function getAnonymousToken(): Promise<string> {
 async function generateSignature(e: string, t: string, timestamp: number): Promise<{ signature: string, timestamp: string }> {
    const timestampStr = String(timestamp);
 
-   // 1. Base64 encode the message content (matching Python implementation)
+   // 1. Base64 encode the message content (matching Python implementation exactly)
    const bodyEncoded = new TextEncoder().encode(t);
    const bodyBase64 = btoa(String.fromCharCode(...bodyEncoded));
 
-   // 2. Construct the string to sign (matching Python implementation)
+   // 2. Construct the string to sign (matching Python implementation exactly)
    const stringToSign = `${e}|${bodyBase64}|${timestampStr}`;
 
-   // 3. Calculate 5-minute time window (matching Python implementation)
+   // 3. Calculate 5-minute time window (matching Python implementation exactly)
    const timeWindow = Math.floor(timestamp / (5 * 60 * 1000));
 
-   // 4. Get signing key (matching Python implementation)
+   // 4. Get signing key (matching Python implementation exactly)
    const secretEnv = Deno.env.get("ZAI_SIGNING_SECRET");
    let rootKey: Uint8Array;
 
@@ -1555,16 +1572,16 @@ async function generateSignature(e: string, t: string, timestamp: number): Promi
      }
      debugLog("Using environment variable key: %s", secretEnv.substring(0, 10) + "...");
    } else {
-     // Use Python version default key
+     // Use Python version default key exactly
      const defaultKey = "key-@@@@)))()((9))-xxxx&&&%%%%%";
      rootKey = new TextEncoder().encode(defaultKey);
      debugLog("Using Python version default key");
    }
 
-   // 5. First layer HMAC, generate intermediate key (matching Python implementation)
+   // 5. First layer HMAC, generate intermediate key (matching Python implementation exactly)
    const firstHmacKey = await crypto.subtle.importKey(
      "raw",
-     rootKey.buffer.slice(rootKey.byteOffset, rootKey.byteOffset + rootKey.byteLength),
+     new Uint8Array(rootKey),
      { name: "HMAC", hash: "SHA-256" },
      false,
      ["sign"]
@@ -1578,7 +1595,7 @@ async function generateSignature(e: string, t: string, timestamp: number): Promi
      .map((b) => b.toString(16).padStart(2, "0"))
      .join("");
 
-   // 6. Second layer HMAC, generate final signature (matching Python implementation)
+   // 6. Second layer HMAC, generate final signature (matching Python implementation exactly)
    const secondKeyMaterial = new TextEncoder().encode(intermediateKey);
    const secondHmacKey = await crypto.subtle.importKey(
      "raw",
@@ -1601,7 +1618,7 @@ async function generateSignature(e: string, t: string, timestamp: number): Promi
      signature,
      timestamp: timestampStr,
    };
-}
+ }
 
 async function callUpstreamWithHeaders(
   upstreamReq: UpstreamRequest,
