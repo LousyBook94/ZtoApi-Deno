@@ -18,7 +18,7 @@ jobs:
       - name: Setup Deno
         uses: denoland/setup-deno@v1
         with:
-          deno-version: v1.44
+          deno-version: v2.4.2
 
       - name: Verify formatting
         run: deno fmt --check
@@ -43,7 +43,7 @@ jobs:
       - name: Setup Deno
         uses: denoland/setup-deno@v1
         with:
-          deno-version: v1.44
+          deno-version: v2.4.2
 
       - name: Cache dependencies
         run: deno cache main.ts anthropic.ts
