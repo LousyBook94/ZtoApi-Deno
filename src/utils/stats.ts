@@ -2,7 +2,7 @@
  * Request statistics tracking
  */
 
-import type { RequestStats, LiveRequest } from "../types/common.ts";
+import type { LiveRequest, RequestStats } from "../types/common.ts";
 
 // Global stats
 export let stats: RequestStats = {
@@ -21,7 +21,7 @@ export let liveRequests: LiveRequest[] = [];
  */
 export function recordRequestStats(startTime: number, _path: string, status: number): void {
   const duration = Date.now() - startTime;
-  
+
   stats.totalRequests++;
   if (status >= 200 && status < 400) {
     stats.successfulRequests++;
@@ -29,10 +29,9 @@ export function recordRequestStats(startTime: number, _path: string, status: num
     stats.failedRequests++;
   }
   stats.lastRequestTime = new Date();
-  
+
   // Update average response time
-  stats.averageResponseTime = 
-    (stats.averageResponseTime * (stats.totalRequests - 1) + duration) / stats.totalRequests;
+  stats.averageResponseTime = (stats.averageResponseTime * (stats.totalRequests - 1) + duration) / stats.totalRequests;
 }
 
 /**
@@ -43,7 +42,7 @@ export function addLiveRequest(
   path: string,
   status: number,
   duration: number,
-  userAgent: string
+  userAgent: string,
 ): void {
   const request: LiveRequest = {
     id: `${Date.now()}-${Math.random().toString(36).substring(7)}`,
@@ -54,9 +53,9 @@ export function addLiveRequest(
     timestamp: new Date(),
     userAgent,
   };
-  
+
   liveRequests.unshift(request);
-  
+
   // Keep only last 100 requests
   if (liveRequests.length > 100) {
     liveRequests = liveRequests.slice(0, 100);
@@ -71,7 +70,7 @@ export function recordAndTrackRequest(
   method: string,
   pathname: string,
   status: number,
-  userAgent: string
+  userAgent: string,
 ): void {
   const duration = Date.now() - startTime;
   recordRequestStats(startTime, pathname, status);
@@ -87,14 +86,14 @@ export function getLiveRequestsData(): string {
       liveRequests = [];
     }
 
-    const requestData = liveRequests.map(req => ({
+    const requestData = liveRequests.map((req) => ({
       id: req.id || "",
       method: req.method || "",
       path: req.path || "",
       status: req.status || 0,
       duration: req.duration || 0,
       timestamp: req.timestamp || new Date(),
-      user_agent: req.userAgent || ""
+      user_agent: req.userAgent || "",
     }));
 
     return JSON.stringify(requestData);
@@ -122,7 +121,7 @@ export function getStatsData(): string {
       totalRequests: stats.totalRequests || 0,
       successfulRequests: stats.successfulRequests || 0,
       failedRequests: stats.failedRequests || 0,
-      averageResponseTime: stats.averageResponseTime || 0
+      averageResponseTime: stats.averageResponseTime || 0,
     };
 
     return JSON.stringify(statsData);
@@ -131,8 +130,7 @@ export function getStatsData(): string {
       totalRequests: 0,
       successfulRequests: 0,
       failedRequests: 0,
-      averageResponseTime: 0
+      averageResponseTime: 0,
     });
   }
 }
-

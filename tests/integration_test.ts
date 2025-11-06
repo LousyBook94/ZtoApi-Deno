@@ -14,8 +14,8 @@ const TEST_API_KEY = "sk-test-key";
 Deno.test("GET /v1/models returns model list", async () => {
   const response = await fetch(`${BASE_URL}/v1/models`, {
     headers: {
-      "Authorization": `Bearer ${TEST_API_KEY}`
-    }
+      "Authorization": `Bearer ${TEST_API_KEY}`,
+    },
   });
 
   assertEquals(response.status, 200);
@@ -33,15 +33,15 @@ Deno.test("POST /v1/chat/completions (non-streaming)", async () => {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${TEST_API_KEY}`,
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       model: "GLM-4.5",
       messages: [
-        { role: "user", content: "Say 'test successful' and nothing else" }
+        { role: "user", content: "Say 'test successful' and nothing else" },
       ],
-      stream: false
-    })
+      stream: false,
+    }),
   });
 
   assertEquals(response.status, 200);
@@ -59,20 +59,20 @@ Deno.test("POST /v1/chat/completions (streaming)", async () => {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${TEST_API_KEY}`,
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       model: "GLM-4.5",
       messages: [
-        { role: "user", content: "Say 'test successful' and nothing else" }
+        { role: "user", content: "Say 'test successful' and nothing else" },
       ],
-      stream: true
-    })
+      stream: true,
+    }),
   });
 
   assertEquals(response.status, 200);
   assertEquals(response.headers.get("Content-Type"), "text/event-stream");
-  
+
   // Read at least one chunk
   const reader = response.body?.getReader();
   assert(reader);
@@ -86,7 +86,7 @@ Deno.test("POST /v1/chat/completions (streaming)", async () => {
  */
 Deno.test("OPTIONS request returns CORS headers", async () => {
   const response = await fetch(`${BASE_URL}/v1/models`, {
-    method: "OPTIONS"
+    method: "OPTIONS",
   });
 
   assertEquals(response.status, 200);
@@ -99,7 +99,7 @@ Deno.test("OPTIONS request returns CORS headers", async () => {
  */
 Deno.test("GET /dashboard returns HTML", async () => {
   const response = await fetch(`${BASE_URL}/dashboard`);
-  
+
   assertEquals(response.status, 200);
   assert(response.headers.get("Content-Type")?.includes("text/html"));
 });
@@ -109,7 +109,7 @@ Deno.test("GET /dashboard returns HTML", async () => {
  */
 Deno.test("GET /api/stats returns statistics", async () => {
   const response = await fetch(`${BASE_URL}/api/stats`);
-  
+
   assertEquals(response.status, 200);
   const data = await response.json();
   assert(typeof data.totalRequests === "number");
@@ -125,12 +125,12 @@ Deno.test("Invalid API key returns 401", async () => {
     method: "POST",
     headers: {
       "Authorization": "Invalid",
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       model: "GLM-4.5",
-      messages: [{ role: "user", content: "test" }]
-    })
+      messages: [{ role: "user", content: "test" }],
+    }),
   });
 
   assertEquals(response.status, 401);
@@ -145,17 +145,16 @@ Deno.test("POST /v1/messages (Anthropic)", async () => {
     headers: {
       "x-api-key": TEST_API_KEY,
       "anthropic-version": "2023-06-01",
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       model: "claude-3-5-sonnet-20241022",
       messages: [
-        { role: "user", content: "Say 'test successful' and nothing else" }
+        { role: "user", content: "Say 'test successful' and nothing else" },
       ],
-      max_tokens: 100
-    })
+      max_tokens: 100,
+    }),
   });
 
   assertEquals(response.status, 200);
 });
-

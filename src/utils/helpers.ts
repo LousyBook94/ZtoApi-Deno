@@ -28,7 +28,10 @@ export function parseBooleanHeader(value: string | null): boolean | null {
 export function setCORSHeaders(headers: Headers): void {
   headers.set("Access-Control-Allow-Origin", "*");
   headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, x-api-key, anthropic-version, x-feature-thinking, x-feature-web-search, x-feature-auto-web-search, x-feature-image-generation, x-feature-title-generation, x-feature-tags-generation, x-feature-mcp, x-think-tags-mode, x-thinking");
+  headers.set(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, x-api-key, anthropic-version, x-feature-thinking, x-feature-web-search, x-feature-auto-web-search, x-feature-image-generation, x-feature-title-generation, x-feature-tags-generation, x-feature-mcp, x-think-tags-mode, x-thinking",
+  );
   headers.set("Access-Control-Allow-Credentials", "true");
 }
 
@@ -49,18 +52,18 @@ export function createErrorResponse(
   status: number,
   type: string,
   message: string,
-  additionalHeaders?: Headers
+  additionalHeaders?: Headers,
 ): Response {
   const headers = new Headers(additionalHeaders);
   headers.set("Content-Type", "application/json");
   setCORSHeaders(headers);
-  
+
   return new Response(
     JSON.stringify({
       type: "error",
-      error: { type, message }
+      error: { type, message },
     }),
-    { status, headers }
+    { status, headers },
   );
 }
 
@@ -69,10 +72,10 @@ export function createErrorResponse(
  */
 export function validateApiKey(authHeader: string): boolean {
   if (!authHeader) return false;
-  
+
   // Must start with "Bearer " and have a key
   if (!authHeader.startsWith("Bearer ")) return false;
-  
+
   const key = authHeader.substring(7);
   return key.length > 0;
 }
@@ -83,4 +86,3 @@ export function validateApiKey(authHeader: string): boolean {
 export function normalizeModelId(modelId: string): string {
   return modelId.toLowerCase().trim();
 }
-

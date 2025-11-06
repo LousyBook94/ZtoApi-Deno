@@ -38,4 +38,3 @@ export interface UpstreamRequest {
     url: string;
   }>;
 }
-

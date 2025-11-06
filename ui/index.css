@@ -51,7 +51,7 @@ html {
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: var(--bg-primary);
   color: var(--text-primary);
   line-height: 1.6;
@@ -91,7 +91,7 @@ body.loaded {
 
 .floating-shapes::before,
 .floating-shapes::after {
-  content: '';
+  content: "";
   position: absolute;
   border-radius: 50%;
   background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
@@ -121,7 +121,7 @@ body.loaded {
 }
 
 .floating-shapes::before {
-  content: '';
+  content: "";
   position: absolute;
   width: 300px;
   height: 300px;
@@ -134,7 +134,7 @@ body.loaded {
 }
 
 .floating-shapes::after {
-  content: '';
+  content: "";
   position: absolute;
   width: 200px;
   height: 200px;
@@ -228,7 +228,7 @@ body.loaded {
 }
 
 .nav-dot.active::after {
-  content: '';
+  content: "";
   position: absolute;
   top: -4px;
   left: -4px;
@@ -427,7 +427,7 @@ body.loaded {
 }
 
 .title-underline::after {
-  content: '';
+  content: "";
   position: absolute;
   top: -2px;
   left: -2px;
@@ -468,7 +468,7 @@ body.loaded {
 }
 
 .link-card::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
@@ -482,7 +482,6 @@ body.loaded {
 .link-card:hover::before {
   transform: scaleX(1);
 }
-
 
 .card-icon {
   font-size: 3rem;
@@ -535,7 +534,7 @@ body.loaded {
 }
 
 .card-link::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: -100%;
@@ -552,7 +551,7 @@ body.loaded {
 
 /* Add a 3D button face effect */
 .card-link::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
@@ -650,7 +649,7 @@ body.loaded {
 }
 
 .feature-item::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
@@ -792,34 +791,34 @@ body.loaded {
   .logo {
     font-size: 3rem;
   }
-  
+
   .hero-stats {
     gap: 20px;
   }
-  
+
   .stat-item {
     min-width: 100px;
     padding: 15px;
   }
-  
+
   .nav-dots {
     right: 15px;
   }
-  
+
   .theme-toggle {
     top: 15px;
     right: 15px;
   }
-  
+
   .footer-content {
     flex-direction: column;
     text-align: center;
   }
-  
+
   .links {
     grid-template-columns: 1fr;
   }
-  
+
   .feature-list {
     grid-template-columns: 1fr;
   }
@@ -829,20 +828,20 @@ body.loaded {
   .container {
     padding: 20px 15px;
   }
-  
+
   .logo {
     font-size: 2.5rem;
   }
-  
+
   .section-title {
     font-size: 2rem;
   }
-  
+
   .hero-stats {
     flex-direction: column;
     align-items: center;
   }
-  
+
   .stat-item {
     width: 100%;
     max-width: 200px;
@@ -865,10 +864,18 @@ body.loaded {
   animation: slideInUp 0.8s ease forwards;
 }
 
-.hero-section > *:nth-child(1) { animation-delay: 0.1s; }
-.hero-section > *:nth-child(2) { animation-delay: 0.2s; }
-.hero-section > *:nth-child(3) { animation-delay: 0.3s; }
-.hero-section > *:nth-child(4) { animation-delay: 0.4s; }
+.hero-section > *:nth-child(1) {
+  animation-delay: 0.1s;
+}
+.hero-section > *:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.hero-section > *:nth-child(3) {
+  animation-delay: 0.3s;
+}
+.hero-section > *:nth-child(4) {
+  animation-delay: 0.4s;
+}
 
 /* Performance Optimizations */
 .link-card,

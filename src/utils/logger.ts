@@ -55,4 +55,3 @@ export const logger = new Logger();
 export function debugLog(format: string, ...args: unknown[]): void {
   logger.debug(format, ...args);
 }
-

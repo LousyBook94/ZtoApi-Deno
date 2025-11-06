@@ -40,4 +40,3 @@ export interface Delta {
   content?: string;
   reasoning_content?: string;
 }
-

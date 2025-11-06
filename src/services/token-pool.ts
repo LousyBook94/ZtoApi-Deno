@@ -24,13 +24,13 @@ export class TokenPool {
     // Read multiple tokens from environment variable, separated by commas
     const tokenEnv = Deno.env.get("ZAI_TOKENS");
     if (tokenEnv) {
-      const tokenList = tokenEnv.split(",").map(t => t.trim()).filter(t => t.length > 0);
+      const tokenList = tokenEnv.split(",").map((t) => t.trim()).filter((t) => t.length > 0);
       this.tokens = tokenList.map((token) => ({
         token,
         isValid: true,
         lastUsed: 0,
         failureCount: 0,
-        isAnonymous: false
+        isAnonymous: false,
       }));
       logger.debug("Token pool initialized, contains %d tokens", this.tokens.length);
     } else if (ZAI_TOKEN) {
@@ -40,7 +40,7 @@ export class TokenPool {
         isValid: true,
         lastUsed: 0,
         failureCount: 0,
-        isAnonymous: false
+        isAnonymous: false,
       }];
       logger.debug("Using single token configuration");
     } else {
@@ -113,7 +113,7 @@ export class TokenPool {
    * Reset token status (after successful call)
    */
   markSuccess(token: string): void {
-    const tokenInfo = this.tokens.find(t => t.token === token);
+    const tokenInfo = this.tokens.find((t) => t.token === token);
     if (tokenInfo) {
       tokenInfo.failureCount = 0;
       tokenInfo.isValid = true;
@@ -166,4 +166,3 @@ export class TokenPool {
     return this.anonymousToken === token;
   }
 }
-

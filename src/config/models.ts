@@ -10,9 +10,9 @@ import type { ModelCapabilities } from "../types/common.ts";
  * Model configuration interface
  */
 export interface ModelConfig {
-  id: string;           // Model ID as exposed by API
-  name: string;         // Display name
-  upstreamId: string;   // Upstream Z.ai model ID
+  id: string; // Model ID as exposed by API
+  name: string; // Display name
+  upstreamId: string; // Upstream Z.ai model ID
   capabilities: {
     vision: boolean;
     mcp: boolean;
@@ -36,13 +36,13 @@ export const SUPPORTED_MODELS: ModelConfig[] = [
     capabilities: {
       vision: false,
       mcp: true,
-      thinking: true
+      thinking: true,
     },
     defaultParams: {
       top_p: 0.95,
       temperature: 0.6,
-      max_tokens: 80000
-    }
+      max_tokens: 80000,
+    },
   },
   {
     id: "GLM-4-6-API-V1",
@@ -51,13 +51,13 @@ export const SUPPORTED_MODELS: ModelConfig[] = [
     capabilities: {
       vision: false,
       mcp: true,
-      thinking: true
+      thinking: true,
     },
     defaultParams: {
       top_p: 0.95,
       temperature: 0.6,
-      max_tokens: 195000
-    }
+      max_tokens: 195000,
+    },
   },
   {
     id: "glm-4.5v",
@@ -66,13 +66,13 @@ export const SUPPORTED_MODELS: ModelConfig[] = [
     capabilities: {
       vision: true,
       mcp: false,
-      thinking: true
+      thinking: true,
     },
     defaultParams: {
       top_p: 0.6,
-      temperature: 0.8
-    }
-  }
+      temperature: 0.8,
+    },
+  },
 ];
 
 // Default model
@@ -83,11 +83,15 @@ export const DEFAULT_MODEL = SUPPORTED_MODELS[0];
  */
 export function getModelConfig(modelId: string): ModelConfig {
   const normalizedModelId = normalizeModelId(modelId);
-  const found = SUPPORTED_MODELS.find(m => m.id === normalizedModelId);
+  const found = SUPPORTED_MODELS.find((m) => m.id === normalizedModelId);
 
   if (!found) {
-    logger.warn("Model config not found: %s (normalized: %s). Using default: %s", 
-      modelId, normalizedModelId, DEFAULT_MODEL.name);
+    logger.warn(
+      "Model config not found: %s (normalized: %s). Using default: %s",
+      modelId,
+      normalizedModelId,
+      DEFAULT_MODEL.name,
+    );
   }
 
   return found || DEFAULT_MODEL;
@@ -98,17 +102,17 @@ export function getModelConfig(modelId: string): ModelConfig {
  */
 export function mapModelId(modelId: string): string {
   const normalized = normalizeModelId(modelId);
-  
+
   const modelMappings: Record<string, string> = {
-    'glm-4-6': 'GLM-4-6-API-V1'
+    "glm-4-6": "GLM-4-6-API-V1",
   };
- 
+
   const mapped = modelMappings[normalized];
   if (mapped) {
     logger.debug("Model ID mapping: %s → %s", modelId, mapped);
     return mapped;
   }
- 
+
   return normalized;
 }
 
@@ -133,35 +137,35 @@ export class ModelCapabilityDetector {
 
   private static isThinkingModel(modelId: string, reasoning?: boolean): boolean {
     return modelId.includes("thinking") ||
-           modelId.includes("4.6") ||
-           reasoning === true ||
-           modelId.includes("0727-360b-api");
+      modelId.includes("4.6") ||
+      reasoning === true ||
+      modelId.includes("0727-360b-api");
   }
 
   private static isSearchModel(modelId: string): boolean {
     return modelId.includes("search") ||
-           modelId.includes("web") ||
-           modelId.includes("browser");
+      modelId.includes("web") ||
+      modelId.includes("browser");
   }
 
   private static isAdvancedSearchModel(modelId: string): boolean {
     return modelId.includes("advanced-search") ||
-           modelId.includes("advanced") ||
-           modelId.includes("pro-search");
+      modelId.includes("advanced") ||
+      modelId.includes("pro-search");
   }
 
   private static isVisionModel(modelId: string): boolean {
     return modelId.includes("4.5v") ||
-           modelId.includes("vision") ||
-           modelId.includes("image") ||
-           modelId.includes("multimodal");
+      modelId.includes("vision") ||
+      modelId.includes("image") ||
+      modelId.includes("multimodal");
   }
 
   private static supportsMCP(modelId: string): boolean {
     // Most advanced models support MCP
     return this.isThinkingModel(modelId) ||
-           this.isSearchModel(modelId) ||
-           this.isAdvancedSearchModel(modelId);
+      this.isSearchModel(modelId) ||
+      this.isAdvancedSearchModel(modelId);
   }
 
   /**
@@ -194,8 +198,7 @@ export class ModelCapabilityDetector {
       { type: "mcp", server: "image-search", status: "hidden" },
       { type: "mcp", server: "deep-research", status: "hidden" },
       { type: "tool_selector", server: "tool_selector", status: "hidden" },
-      { type: "mcp", server: "advanced-search", status: "hidden" }
+      { type: "mcp", server: "advanced-search", status: "hidden" },
     ];
   }
 }
-

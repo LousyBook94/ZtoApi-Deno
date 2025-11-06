@@ -15,6 +15,7 @@ Hey there! 👋 Welcome to ZtoApi - your ultimate dual-API proxy that brings Z.a
 ## 🎯 **DUAL API SUPPORT** - Use Either Format!
 
 ### 🔥 **OpenAI Compatible** → `/v1/` endpoints
+
 ### 🎭 **Anthropic Claude Compatible** → `/anthropic/v1/` endpoints
 
 **Use your existing OpenAI OR Claude clients without any changes!** 🚀
@@ -37,12 +38,14 @@ See [Models](./docs/models.md) for a complete list of supported models and their
 ## 🔌 **API Endpoints Overview**
 
 ### **OpenAI Compatible Endpoints** 🔥
+
 ```
 GET  /v1/models                    # List available models
 POST /v1/chat/completions          # Chat completions (streaming & non-streaming)
 ```
 
 ### **Anthropic Claude Compatible Endpoints** 🎭
+
 ```
 GET  /anthropic/v1/models          # List available Claude models
 POST /anthropic/v1/messages        # Messages (streaming & non-streaming)  
@@ -50,6 +53,7 @@ POST /anthropic/v1/messages/count_tokens  # Count tokens in messages
 ```
 
 ### **Dashboard & Monitoring** 📊
+
 ```
 GET  /                             # Welcome page & overview
 GET  /dashboard                    # Real-time API monitoring dashboard
@@ -57,6 +61,7 @@ GET  /docs                         # API documentation
 ```
 
 Base paths:
+
 - OpenAI: http://localhost:9090/v1 🌐
 - Claude: http://localhost:9090/anthropic/v1 🎭
 
@@ -94,6 +99,7 @@ src/
 ```
 
 **For developers:**
+
 - [📖 Migration Guide](./MIGRATION_GUIDE.md) - Guide to the new modular structure
 - [📋 Cleanup Summary](./CLEANUP_SUMMARY.md) - Detailed refactoring report
 - [🤖 AGENTS.md](./AGENTS.md) - Development guide for AI agents
@@ -103,6 +109,7 @@ src/
 Want to help make ZtoApi even better? We'd love your help! 💪
 
 **Development Workflow:**
+
 ```bash
 deno task dev      # Run with watch mode
 deno task test     # Run tests
@@ -140,9 +147,9 @@ Special thanks to the amazing open-source community! This project was inspired b
 - **🏆 [@sarices (ZhengWeiDong)](https://github.com/sarices) - THE ABSOLUTE LEGEND** 🔥🔥🔥
   - **🎯 SINGLE-HANDEDLY FIXED Z.ai upstream authentication** - WITHOUT HIM THIS PROJECT WOULD BE BROKEN!
   - **⚡ IMPLEMENTED Base64 encoding signature algorithm** - Critical fix that restored ALL API functionality
-  - **🛠️ RESOLVED the dreaded "502 Bad Gateway" errors** - Both OpenAI AND Anthropic endpoints now work flawlessly  
+  - **🛠️ RESOLVED the dreaded "502 Bad Gateway" errors** - Both OpenAI AND Anthropic endpoints now work flawlessly
   - **💡 PR**: [feat(api): update signature algorithm to align with upstream](https://github.com/roseforyou/ZtoApi/pull/6)
   - **🎖️ IMPACT**: This genius-level contribution literally SAVED the entire project! 🙌✨
   - **🏅 HERO STATUS**: ZhengWeiDong (Z.ai upstream fixing) - WE OWE YOU EVERYTHING! 🎉
 
-*This man deserves a medal! Without @sarices, none of this would work! 🏆*
+_This man deserves a medal! Without @sarices, none of this would work! 🏆_

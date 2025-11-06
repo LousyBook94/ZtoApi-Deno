@@ -3,6 +3,7 @@
 ZtoApi moved from a single massive main.ts to a modular layout under src/.
 
 ### What changed
+
 - All magic numbers moved to CONFIG (src/config/constants.ts)
 - Model config and capability detection in src/config/models.ts
 - Request logic split into services (signature, headers, images, upstream caller)
@@ -10,11 +11,13 @@ ZtoApi moved from a single massive main.ts to a modular layout under src/.
 - /v1/models handler extracted to src/handlers/models.ts
 
 ### What did not change
+
 - API endpoints and request/response formats
 - Upstream call behavior (headers, params, signature)
 - Env vars (PORT, DEBUG_MODE, ZAI_TOKEN, ZAI_TOKENS, DEFAULT_KEY, etc.)
 
 ### Where things went
+
 - Token rotation: src/services/token-pool.ts
 - Anonymous token: src/services/anonymous-token.ts
 - Signature: src/services/signature.ts
@@ -27,6 +30,7 @@ ZtoApi moved from a single massive main.ts to a modular layout under src/.
 - Common helpers: src/utils/helpers.ts
 
 ### Import examples
+
 ```
 import { CONFIG } from "./src/config/constants.ts";
 import { getModelConfig } from "./src/config/models.ts";
@@ -36,18 +40,21 @@ import { SmartHeaderGenerator } from "./src/services/header-generator.ts";
 ```
 
 ### Local run
+
 ```
 deno task dev     # dev
 PORT=9090 deno task start
 ```
 
 ### Docker run
+
 ```
 docker build -t ztoapi .
 docker run -p 9090:9090 --env PORT=9090 ztoapi
 ```
 
 ### Testing (manual)
+
 ```
 # Models
 curl -s http://localhost:9090/v1/models | jq
@@ -66,7 +73,7 @@ curl -N http://localhost:9090/v1/chat/completions \
 ```
 
 ### Tips
+
 - Set DEBUG_MODE=false in prod
 - Provide ZAI_TOKEN or ZAI_TOKENS for authenticated upstream
 - DEFAULT_KEY controls client API-key for your users
-

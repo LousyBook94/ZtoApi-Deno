@@ -3,6 +3,7 @@
 ## [2.0.0] - 2025-11-06
 
 ### Added
+
 - **Modular Architecture**: Created 18 new modules in `src/` directory
   - `src/config/` - Configuration and constants (2 files)
   - `src/services/` - Business logic services (7 files)
@@ -15,17 +16,20 @@
 - **Quick Reference**: Developer quick reference guide
 
 ### Changed
+
 - **main.ts**: Updated to import and use new modular components
 - **deno.json**: Added new tasks (lint, fmt, check, test:unit)
 - **README.md**: Updated with modular architecture information
 - **Test Organization**: Moved all tests to `tests/` directory
 
 ### Removed
+
 - Sensitive files: `server.log`
 - Unclear purpose: `visual_tester/`
 - Internal notes: `apiupdate_prompts.md`, `anthropic_structure.md`, `think_tags_mode_example.md`
 
 ### Refactored
+
 - **Magic Numbers**: All extracted to `CONFIG` constant
 - **Duplicate Code**: Eliminated all duplicate patterns (DRY applied)
 - **Logging**: Centralized with `logger` module
@@ -33,12 +37,14 @@
 - **Error Handling**: Standardized error response creation
 
 ### Technical Details
+
 - **Backward Compatible**: 100% - All API endpoints unchanged
 - **Upstream Compatible**: Verified - Request format preserved
 - **Breaking Changes**: 0 (zero)
 - **Code Quality**: Improved maintainability, testability, and scalability
 
 ### Metrics
+
 - Modules: 2 → 20 (+900%)
 - Magic Numbers: 50+ → 0 (-100%)
 - Duplicate Code: 15+ patterns → 0 (-100%)
@@ -50,4 +56,3 @@
 ## [1.0.0] - Previous
 
 Initial release with monolithic architecture.
-

@@ -56,7 +56,7 @@ export class ImageProcessor {
         mimeType = `image/${matches[1]}`;
         filename = `image.${matches[1]}`;
         const base64Data = matches[2];
-        imageData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+        imageData = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
       } else if (imageUrl.startsWith("http")) {
         // Download remote image
         const response = await fetch(imageUrl);
@@ -77,7 +77,10 @@ export class ImageProcessor {
 
       // Create FormData
       const formData = new FormData();
-      const arrayBuffer = imageData.buffer.slice(imageData.byteOffset, imageData.byteOffset + imageData.byteLength) as ArrayBuffer;
+      const arrayBuffer = imageData.buffer.slice(
+        imageData.byteOffset,
+        imageData.byteOffset + imageData.byteLength,
+      ) as ArrayBuffer;
       const blob = new Blob([arrayBuffer], { type: mimeType });
       formData.append("file", blob, filename);
 
@@ -101,7 +104,8 @@ export class ImageProcessor {
           "Sec-Fetch-Dest": "empty",
           "Sec-Fetch-Mode": "cors",
           "Sec-Fetch-Site": "same-origin",
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0",
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0",
           "X-Fe-Version": X_FE_VERSION,
         },
         body: formData,
@@ -120,7 +124,7 @@ export class ImageProcessor {
         filename: uploadResult.filename || filename,
         size: imageData.length,
         type: mimeType,
-        url: uploadResult.url || `/api/v1/files/${uploadResult.id}/content`
+        url: uploadResult.url || `/api/v1/files/${uploadResult.id}/content`,
       };
     } catch (error) {
       logger.error("Image upload failed: %v", error);
@@ -135,8 +139,10 @@ export class ImageProcessor {
     messages: Message[],
     token: string,
     isVisionModel: boolean = false,
-    chatId: string = ""
-  ): Promise<{ processedMessages: Message[], uploadedFiles: UploadedFile[], uploadedFilesMap: Map<string, UploadedFile> }> {
+    chatId: string = "",
+  ): Promise<
+    { processedMessages: Message[]; uploadedFiles: UploadedFile[]; uploadedFilesMap: Map<string, UploadedFile> }
+  > {
     const processedMessages: Message[] = [];
     const uploadedFiles: UploadedFile[] = [];
     const uploadedFilesMap = new Map<string, UploadedFile>();
@@ -164,7 +170,7 @@ export class ImageProcessor {
                 const newUrl = `${uploadedFile.id}_${uploadedFile.filename}`;
                 newContent.push({
                   type: "image_url",
-                  image_url: { url: newUrl }
+                  image_url: { url: newUrl },
                 });
                 uploadedFilesMap.set(imageUrl, uploadedFile);
                 logger.debug("GLM-4.5V image URL converted: %s -> %s", truncateString(imageUrl), newUrl);
@@ -178,7 +184,7 @@ export class ImageProcessor {
               logger.warn("Image upload failed");
               newContent.push({
                 type: "text",
-                text: "[系统提示: 图片上传失败]"
+                text: "[系统提示: 图片上传失败]",
               });
             }
           } else if (part.type === "text") {
@@ -202,7 +208,7 @@ export class ImageProcessor {
     return {
       processedMessages,
       uploadedFiles,
-      uploadedFilesMap
+      uploadedFilesMap,
     };
   }
 
@@ -228,4 +234,3 @@ export class ImageProcessor {
     return "";
   }
 }
-

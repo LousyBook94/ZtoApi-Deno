@@ -33,14 +33,16 @@ export interface LiveRequest {
  */
 export interface Message {
   role: string;
-  content: string | Array<{
-    type: string;
-    text?: string;
-    image_url?: {url: string};
-    video_url?: {url: string};
-    document_url?: {url: string};
-    audio_url?: {url: string};
-  }>;
+  content:
+    | string
+    | Array<{
+      type: string;
+      text?: string;
+      image_url?: { url: string };
+      video_url?: { url: string };
+      document_url?: { url: string };
+      audio_url?: { url: string };
+    }>;
   reasoning_content?: string;
 }
 
@@ -128,4 +130,3 @@ export interface TokenInfo {
   failureCount: number;
   isAnonymous: boolean;
 }
-

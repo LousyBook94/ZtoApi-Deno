@@ -27,7 +27,7 @@ export async function getAnonymousToken(): Promise<string> {
           ...dynamicHeaders,
           "Accept": "*/*",
           "Accept-Language": `${DEFAULT_LANGUAGE},en;q=0.9`,
-        }
+        },
       });
 
       logger.debug("Anonymous token response status: %d", response.status);
@@ -65,10 +65,9 @@ export async function getAnonymousToken(): Promise<string> {
     retryCount++;
     if (retryCount < CONFIG.MAX_RETRY_ATTEMPTS) {
       logger.debug("Waiting %d ms before retry...", CONFIG.RETRY_DELAY_MS);
-      await new Promise(resolve => setTimeout(resolve, CONFIG.RETRY_DELAY_MS));
+      await new Promise((resolve) => setTimeout(resolve, CONFIG.RETRY_DELAY_MS));
     }
   }
 
   throw new Error(`Failed to obtain anonymous token after ${CONFIG.MAX_RETRY_ATTEMPTS} attempts`);
 }
-

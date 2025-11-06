@@ -5,7 +5,7 @@
  */
 
 import { decodeBase64 } from "@std/encoding/base64";
-import { UPSTREAM_URL, CONFIG } from "../config/constants.ts";
+import { CONFIG, UPSTREAM_URL } from "../config/constants.ts";
 import { logger } from "../utils/logger.ts";
 import { generateSignature } from "./signature.ts";
 import { SmartHeaderGenerator } from "./header-generator.ts";
@@ -20,7 +20,7 @@ export async function callUpstreamWithHeaders(
   upstreamReq: UpstreamRequest,
   refererChatID: string,
   authToken: string,
-  tokenPool: TokenPool
+  tokenPool: TokenPool,
 ): Promise<Response> {
   try {
     logger.debug("Call upstream API: %s", UPSTREAM_URL);
@@ -31,7 +31,7 @@ export async function callUpstreamWithHeaders(
       const tokenParts = authToken.split(".");
       if (tokenParts.length === 3) {
         const payload = JSON.parse(
-          new TextDecoder().decode(decodeBase64(tokenParts[1]))
+          new TextDecoder().decode(decodeBase64(tokenParts[1])),
         );
 
         // Try multiple possible user_id fields
@@ -66,7 +66,7 @@ export async function callUpstreamWithHeaders(
     const { signature } = await generateSignature(
       e,
       lastMessageContent,
-      timestamp
+      timestamp,
     );
     logger.debug("Generated signature: %s", signature);
 
@@ -95,7 +95,7 @@ export async function callUpstreamWithHeaders(
       "referrer": "",
       "title": "Z.ai Chat - Free AI powered by GLM-4.6 & GLM-4.5",
       "timezone_offset": "-480",
-      "local_time": new Date(timestamp).toISOString().replace('T', ' ').substring(0, 23) + 'Z',
+      "local_time": new Date(timestamp).toISOString().replace("T", " ").substring(0, 23) + "Z",
       "utc_time": new Date(timestamp).toUTCString(),
       "is_mobile": "false",
       "is_touch": "false",
@@ -150,4 +150,3 @@ export async function callUpstreamWithHeaders(
     throw error;
   }
 }
-

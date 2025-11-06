@@ -13,7 +13,7 @@ export function generateFingerprintParams(
   timestamp: number,
   requestId: string,
   token: string,
-  chatId: string = ""
+  chatId: string = "",
 ): Record<string, string> {
   // Extract user ID from JWT token (multi-field support)
   let userId = "guest";
@@ -40,7 +40,7 @@ export function generateFingerprintParams(
   }
 
   const now = new Date(timestamp);
-  const localTime = now.toISOString().replace('T', ' ').substring(0, 23) + 'Z';
+  const localTime = now.toISOString().replace("T", " ").substring(0, 23) + "Z";
 
   return {
     // Basic parameters
@@ -95,4 +95,3 @@ export function generateFingerprintParams(
     "signature_timestamp": timestamp.toString(),
   };
 }
-

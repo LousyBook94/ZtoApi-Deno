@@ -25,12 +25,15 @@ Customize your experience with these settings:
 ## 🔐 New Features and Configuration
 
 ### Enhanced Request Signature
+
 ZtoApi now uses an updated dual-layer HMAC-SHA256 signature algorithm with Base64 encoding for enhanced security. Set `ZAI_SIGNING_SECRET` to customize the signature key. For detailed information, see [signature-update-guide.md](../signature-update-guide.md).
 
 ### Token Pool Management
+
 The server includes automatic token pool management for handling API tokens efficiently, supporting anonymous access and token rotation. This feature is enabled by default and requires no additional configuration.
 
 ### Multimodal Support
+
 Enhanced support for images, videos, documents, and audio in requests. Ensure `ZAI_TOKEN` is set for full multimodal capabilities.
 
 ## 🧪 Quick Local Test
@@ -38,6 +41,7 @@ Enhanced support for images, videos, documents, and audio in requests. Ensure `Z
 Let's test it out!
 
 **OpenAI API:**
+
 ```bash
 curl http://localhost:9090/v1/models
 ```
@@ -50,6 +54,7 @@ curl -X POST http://localhost:9090/v1/chat/completions \
 ```
 
 **Claude API:**
+
 ```bash
 curl http://localhost:9090/anthropic/v1/models
 ```

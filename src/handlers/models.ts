@@ -18,22 +18,21 @@ export function handleModels(request: Request): Response {
     return new Response(null, { status: 200, headers });
   }
 
-  const models = SUPPORTED_MODELS.map(model => ({
+  const models = SUPPORTED_MODELS.map((model) => ({
     id: model.name,
     object: "model",
     created: Math.floor(Date.now() / 1000),
-    owned_by: "z.ai"
+    owned_by: "z.ai",
   }));
 
   const response: ModelsResponse = {
     object: "list",
-    data: models
+    data: models,
   };
 
   headers.set("Content-Type", "application/json");
   return new Response(JSON.stringify(response), {
     status: 200,
-    headers
+    headers,
   });
 }
-

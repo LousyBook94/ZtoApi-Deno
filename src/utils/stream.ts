@@ -4,7 +4,7 @@
  */
 
 import { logger } from "./logger.ts";
-import type { Usage, UpstreamData } from "../types/common.ts";
+import type { UpstreamData, Usage } from "../types/common.ts";
 import type { OpenAIResponse } from "../types/openai.ts";
 
 /**
@@ -12,7 +12,7 @@ import type { OpenAIResponse } from "../types/openai.ts";
  */
 export function transformThinking(
   content: string,
-  mode: "strip" | "thinking" | "think" | "raw" | "separate" = "strip"
+  mode: "strip" | "thinking" | "think" | "raw" | "separate" = "strip",
 ): string | { content: string; reasoning: string } {
   if (mode === "raw") {
     return content;
@@ -25,7 +25,7 @@ export function transformThinking(
       const contentWithoutThink = content.replace(/<think>[\s\S]*?<\/think>/, "").trim();
       return {
         content: contentWithoutThink,
-        reasoning: reasoning
+        reasoning: reasoning,
       };
     }
     return { content: content, reasoning: "" };
@@ -49,7 +49,7 @@ export async function processStreamingResponse(
   body: ReadableStream<Uint8Array>,
   writer: WritableStreamDefaultWriter<Uint8Array>,
   modelName: string,
-  thinkTagsMode: "strip" | "thinking" | "think" | "raw" | "separate" = "strip"
+  thinkTagsMode: "strip" | "thinking" | "think" | "raw" | "separate" = "strip",
 ): Promise<Usage | null> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
@@ -64,7 +64,7 @@ export async function processStreamingResponse(
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
+      const lines = buffer.split("\n");
       buffer = lines.pop() || "";
 
       for (const line of lines) {
@@ -77,8 +77,12 @@ export async function processStreamingResponse(
 
             if (upstreamData.data.usage) {
               finalUsage = upstreamData.data.usage;
-              logger.debug("Captured usage: prompt=%d, completion=%d, total=%d",
-                finalUsage.prompt_tokens, finalUsage.completion_tokens, finalUsage.total_tokens);
+              logger.debug(
+                "Captured usage: prompt=%d, completion=%d, total=%d",
+                finalUsage.prompt_tokens,
+                finalUsage.completion_tokens,
+                finalUsage.total_tokens,
+              );
             }
 
             if (upstreamData.data.edit_content) {
@@ -95,8 +99,8 @@ export async function processStreamingResponse(
                     choices: [{
                       index: 0,
                       delta: { reasoning_content: transformed.reasoning },
-                      finish_reason: null
-                    }]
+                      finish_reason: null,
+                    }],
                   };
                   await writer.write(encoder.encode(`data: ${JSON.stringify(reasoningChunk)}\n\n`));
                 }
@@ -110,8 +114,8 @@ export async function processStreamingResponse(
                     choices: [{
                       index: 0,
                       delta: { content: transformed.content },
-                      finish_reason: null
-                    }]
+                      finish_reason: null,
+                    }],
                   };
                   await writer.write(encoder.encode(`data: ${JSON.stringify(contentChunk)}\n\n`));
                 }
@@ -128,8 +132,8 @@ export async function processStreamingResponse(
                     choices: [{
                       index: 0,
                       delta: { content: processedContent },
-                      finish_reason: null
-                    }]
+                      finish_reason: null,
+                    }],
                   };
                   await writer.write(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
                 }
@@ -152,8 +156,8 @@ export async function processStreamingResponse(
                     choices: [{
                       index: 0,
                       delta: { content: rawContent },
-                      finish_reason: null
-                    }]
+                      finish_reason: null,
+                    }],
                   };
                   await writer.write(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
                 }
@@ -167,8 +171,8 @@ export async function processStreamingResponse(
                     choices: [{
                       index: 0,
                       delta: { content: rawContent },
-                      finish_reason: null
-                    }]
+                      finish_reason: null,
+                    }],
                   };
                   await writer.write(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
                 }
@@ -186,9 +190,9 @@ export async function processStreamingResponse(
                 choices: [{
                   index: 0,
                   delta: {},
-                  finish_reason: "stop"
+                  finish_reason: "stop",
                 }],
-                usage: finalUsage || undefined
+                usage: finalUsage || undefined,
               };
 
               await writer.write(encoder.encode(`data: ${JSON.stringify(endChunk)}\n\n`));
@@ -213,8 +217,8 @@ export async function processStreamingResponse(
  */
 export async function collectFullResponse(
   body: ReadableStream<Uint8Array>,
-  thinkTagsMode: "strip" | "thinking" | "think" | "raw" | "separate" = "strip"
-): Promise<{content: string, reasoning_content?: string, usage: Usage | null}> {
+  thinkTagsMode: "strip" | "thinking" | "think" | "raw" | "separate" = "strip",
+): Promise<{ content: string; reasoning_content?: string; usage: Usage | null }> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
@@ -229,7 +233,7 @@ export async function collectFullResponse(
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
+      const lines = buffer.split("\n");
       buffer = lines.pop() || "";
 
       for (const line of lines) {
@@ -242,8 +246,12 @@ export async function collectFullResponse(
 
             if (upstreamData.data.usage) {
               finalUsage = upstreamData.data.usage;
-              logger.debug("Captured usage in non-streaming: prompt=%d, completion=%d, total=%d",
-                finalUsage.prompt_tokens, finalUsage.completion_tokens, finalUsage.total_tokens);
+              logger.debug(
+                "Captured usage in non-streaming: prompt=%d, completion=%d, total=%d",
+                finalUsage.prompt_tokens,
+                finalUsage.completion_tokens,
+                finalUsage.total_tokens,
+              );
             }
 
             if (upstreamData.data.edit_content) {
@@ -258,7 +266,10 @@ export async function collectFullResponse(
 
                     if (transformed.content && transformed.content.trim() !== "") {
                       fullContent += transformed.content || "";
-                      logger.debug("Added content part from edit_content, length: %d", (transformed.content || "").length);
+                      logger.debug(
+                        "Added content part from edit_content, length: %d",
+                        (transformed.content || "").length,
+                      );
                     }
                   }
                 }
@@ -268,7 +279,10 @@ export async function collectFullResponse(
 
                 if (processedContent && processedContent.trim() !== "") {
                   fullContent += processedContent || "";
-                  logger.debug("Added processed edit_content to fullContent, length: %d", (processedContent || "").length);
+                  logger.debug(
+                    "Added processed edit_content to fullContent, length: %d",
+                    (processedContent || "").length,
+                  );
                 }
               }
             }
@@ -301,13 +315,16 @@ export async function collectFullResponse(
                 }
               }
 
-              logger.debug("collectFullResponse early return - content length: %d, reasoning length: %d",
-                fullContent.length, fullReasoning ? fullReasoning.length : 0);
+              logger.debug(
+                "collectFullResponse early return - content length: %d, reasoning length: %d",
+                fullContent.length,
+                fullReasoning ? fullReasoning.length : 0,
+              );
 
               return {
                 content: fullContent,
                 reasoning_content: fullReasoning || undefined,
-                usage: finalUsage
+                usage: finalUsage,
               };
             }
           } catch (_error) {
@@ -327,13 +344,15 @@ export async function collectFullResponse(
     }
   }
 
-  logger.debug("collectFullResponse returning - content length: %d, reasoning length: %d",
-    fullContent.length, fullReasoning ? fullReasoning.length : 0);
+  logger.debug(
+    "collectFullResponse returning - content length: %d, reasoning length: %d",
+    fullContent.length,
+    fullReasoning ? fullReasoning.length : 0,
+  );
 
   return {
     content: fullContent,
     reasoning_content: fullReasoning || undefined,
-    usage: finalUsage
+    usage: finalUsage,
   };
 }
-

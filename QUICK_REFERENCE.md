@@ -3,12 +3,14 @@
 ## 📦 Module Imports
 
 ### Configuration
+
 ```typescript
-import { CONFIG, UPSTREAM_URL, DEFAULT_KEY } from "./src/config/constants.ts";
-import { SUPPORTED_MODELS, getModelConfig } from "./src/config/models.ts";
+import { CONFIG, DEFAULT_KEY, UPSTREAM_URL } from "./src/config/constants.ts";
+import { getModelConfig, SUPPORTED_MODELS } from "./src/config/models.ts";
 ```
 
 ### Services
+
 ```typescript
 import { TokenPool } from "./src/services/token-pool.ts";
 import { generateSignature } from "./src/services/signature.ts";
@@ -17,21 +19,24 @@ import { ImageProcessor } from "./src/services/image-processor.ts";
 ```
 
 ### Types
+
 ```typescript
 import type { Message, Usage } from "./src/types/common.ts";
 import type { OpenAIRequest } from "./src/types/openai.ts";
 ```
 
 ### Utilities
+
 ```typescript
 import { logger } from "./src/utils/logger.ts";
-import { truncateString, setCORSHeaders } from "./src/utils/helpers.ts";
+import { setCORSHeaders, truncateString } from "./src/utils/helpers.ts";
 import { recordAndTrackRequest } from "./src/utils/stats.ts";
 ```
 
 ## 🔧 Common Tasks
 
 ### Logging
+
 ```typescript
 logger.debug("Debug: %s", value);
 logger.info("Info: %s", value);
@@ -40,12 +45,14 @@ logger.error("Error: %s", value);
 ```
 
 ### Get Configuration
+
 ```typescript
 const port = CONFIG.DEFAULT_PORT;
 const retryAttempts = CONFIG.MAX_RETRY_ATTEMPTS;
 ```
 
 ### Get Model Config
+
 ```typescript
 const config = getModelConfig("glm-4.5v");
 console.log(config.capabilities.vision); // true
@@ -107,4 +114,3 @@ DEFAULT_KEY=sk-your-key
 ---
 
 **Version**: 2.0.0 (Modular Architecture)
-

@@ -16,7 +16,7 @@ import { logger } from "../utils/logger.ts";
 export async function generateSignature(
   e: string,
   t: string,
-  timestamp: number
+  timestamp: number,
 ): Promise<{ signature: string; timestamp: string }> {
   const timestampStr = String(timestamp);
 
@@ -38,7 +38,7 @@ export async function generateSignature(
     // Read key from environment variable
     if (/^[0-9a-fA-F]+$/.test(secretEnv) && secretEnv.length % 2 === 0) {
       // HEX format
-      rootKey = new Uint8Array(secretEnv.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+      rootKey = new Uint8Array(secretEnv.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16)));
     } else {
       // UTF-8 format
       rootKey = new TextEncoder().encode(secretEnv);
@@ -56,12 +56,12 @@ export async function generateSignature(
     new Uint8Array(rootKey),
     { name: "HMAC", hash: "SHA-256" },
     false,
-    ["sign"]
+    ["sign"],
   );
   const firstSignatureBuffer = await crypto.subtle.sign(
     "HMAC",
     firstHmacKey,
-    new TextEncoder().encode(String(timeWindow))
+    new TextEncoder().encode(String(timeWindow)),
   );
   const intermediateKey = Array.from(new Uint8Array(firstSignatureBuffer))
     .map((b) => b.toString(16).padStart(2, "0"))
@@ -74,12 +74,12 @@ export async function generateSignature(
     secondKeyMaterial,
     { name: "HMAC", hash: "SHA-256" },
     false,
-    ["sign"]
+    ["sign"],
   );
   const finalSignatureBuffer = await crypto.subtle.sign(
     "HMAC",
     secondHmacKey,
-    new TextEncoder().encode(stringToSign)
+    new TextEncoder().encode(stringToSign),
   );
   const signature = Array.from(new Uint8Array(finalSignatureBuffer))
     .map((b) => b.toString(16).padStart(2, "0"))
@@ -91,4 +91,3 @@ export async function generateSignature(
     timestamp: timestampStr,
   };
 }
-

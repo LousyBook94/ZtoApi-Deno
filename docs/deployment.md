@@ -17,6 +17,7 @@ Run it right on your machine!
 **Prerequisites**: Install Deno (if you haven't already!)
 
 Start locally:
+
 ```bash
 deno run --allow-net --allow-env --allow-read main.ts
 ```
@@ -32,6 +33,7 @@ deno compile --allow-net --allow-env --allow-read --output ztoapi main.ts
 ```
 
 Dockerfile example:
+
 ```dockerfile
 FROM denoland/deno:1.40.0
 WORKDIR /app
@@ -41,6 +43,7 @@ CMD ["deno", "run", "--allow-net", "--allow-env", "--allow-read", "main.ts"]
 ```
 
 Build and run:
+
 ```bash
 docker build -t ztoapi .
 docker run -p 9090:9090 -e DEFAULT_KEY="sk-your-key" ztoapi

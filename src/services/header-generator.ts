@@ -26,35 +26,40 @@ export class SmartHeaderGenerator {
 
   private static readonly browserConfigs: BrowserConfig[] = [
     {
-      ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0",
+      ua:
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0",
       secChUa: '"Chromium";v="140", "Not=A?Brand";v="24", "Microsoft Edge";v="140"',
-      version: "140.0.0.0"
+      version: "140.0.0.0",
     },
     {
-      ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+      ua:
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
       secChUa: '"Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"',
-      version: "140.0.0.0"
+      version: "140.0.0.0",
     },
     {
-      ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
+      ua:
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
       secChUa: '"Chromium";v="139", "Not=A?Brand";v="24", "Google Chrome";v="139"',
-      version: "139.0.0.0"
+      version: "139.0.0.0",
     },
     {
-      ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0",
+      ua:
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0",
       secChUa: '"Microsoft Edge";v="141", "Not?A_Brand";v="8", "Chromium";v="141"',
-      version: "141.0.0.0"
+      version: "141.0.0.0",
     },
     {
       ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0",
       secChUa: '"Not_A Brand";v="8", "Chromium";v="126", "Firefox";v="126"',
-      version: "126.0"
+      version: "126.0",
     },
     {
-      ua: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+      ua:
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
       secChUa: '"Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"',
-      version: "140.0.0.0"
-    }
+      version: "140.0.0.0",
+    },
   ];
 
   /**
@@ -151,7 +156,8 @@ async function fetchLatestFEVersion(): Promise<string> {
 
     const response = await fetch(CONFIG.ORIGIN_BASE, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       },
     });
@@ -175,4 +181,3 @@ async function fetchLatestFEVersion(): Promise<string> {
 
   return X_FE_VERSION; // fallback to current version
 }
-

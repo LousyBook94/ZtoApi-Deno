@@ -5,6 +5,7 @@ Usage examples for both OpenAI and Anthropic APIs.
 ## 🔥 **OpenAI API Examples**
 
 ### **Python (OpenAI SDK)**
+
 ```python
 import openai
 
@@ -35,6 +36,7 @@ response = client.chat.completions.create(
 ```
 
 ### **cURL (OpenAI)**
+
 ```bash
 # Non-streaming
 curl -X POST http://localhost:9090/v1/chat/completions \
@@ -60,6 +62,7 @@ curl -X POST http://localhost:9090/v1/chat/completions \
 ## 🎭 **Anthropic Claude API Examples**
 
 ### **Python (Anthropic SDK)**
+
 ```python
 import anthropic
 
@@ -113,6 +116,7 @@ response = client.messages.create(
 ```
 
 ### **cURL (Anthropic)**
+
 ```bash
 # Latest Claude 4.5 Sonnet (REAL model!)
 curl -X POST http://localhost:9090/anthropic/v1/messages \
@@ -166,32 +170,33 @@ curl -X POST http://localhost:9090/anthropic/v1/messages \
 ```
 
 ### **JavaScript (Both APIs)**
+
 ```javascript
 // OpenAI API
-const openaiResponse = await fetch('http://localhost:9090/v1/chat/completions', {
-  method: 'POST',
+const openaiResponse = await fetch("http://localhost:9090/v1/chat/completions", {
+  method: "POST",
   headers: {
-    'Content-Type': 'application/json',
-    'Authorization': 'Bearer your-api-key'
+    "Content-Type": "application/json",
+    "Authorization": "Bearer your-api-key",
   },
   body: JSON.stringify({
-    model: 'GLM-4-6-API-V1',
-    messages: [{role: 'user', content: 'Hello OpenAI API!'}]
-  })
+    model: "GLM-4-6-API-V1",
+    messages: [{ role: "user", content: "Hello OpenAI API!" }],
+  }),
 });
 
 // Anthropic API - Latest REAL Claude 4.5!
-const claudeResponse = await fetch('http://localhost:9090/anthropic/v1/messages', {
-  method: 'POST', 
+const claudeResponse = await fetch("http://localhost:9090/anthropic/v1/messages", {
+  method: "POST",
   headers: {
-    'Content-Type': 'application/json',
-    'x-api-key': 'your-api-key'
+    "Content-Type": "application/json",
+    "x-api-key": "your-api-key",
   },
   body: JSON.stringify({
-    model: 'claude-sonnet-4-5-20250929',  // 🚀 REAL Latest model!
+    model: "claude-sonnet-4-5-20250929", // 🚀 REAL Latest model!
     max_tokens: 1000,
-    messages: [{role: 'user', content: 'Hello REAL Claude 4.5!'}]
-  })
+    messages: [{ role: "user", content: "Hello REAL Claude 4.5!" }],
+  }),
 });
 ```
 
