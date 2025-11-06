@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   ztoapi:
     build:
@@ -9,7 +7,21 @@ services:
     ports:
       - "9090:9090"
     environment:
-      - DEFAULT_KEY=your-secret-key
-      # - ZAI_TOKEN=your-zai-token
-      # - DEBUG_MODE=true
+      - PORT=9090
+      - DEFAULT_KEY=sk-your-secret-key-here
+      - DEBUG_MODE=true
+      - DASHBOARD_ENABLED=true
+      - DEFAULT_STREAM=true
+      # Uncomment and set your Z.ai token for authenticated requests
+      # - ZAI_TOKEN=your-zai-token-here
+      # For multiple tokens, use comma-separated values:
+      # - ZAI_TOKENS=token1,token2,token3
+      # Optional: Custom signing secret for enhanced security
+      # - ZAI_SIGNING_SECRET=your-custom-signing-secret
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9090/v1/models"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
