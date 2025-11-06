@@ -9,7 +9,7 @@ import { truncateString } from "../utils/helpers.ts";
 import type { Message, UploadedFile } from "../types/common.ts";
 
 // Import X_FE_VERSION from header generator
-let X_FE_VERSION = CONFIG.DEFAULT_FE_VERSION;
+const X_FE_VERSION = CONFIG.DEFAULT_FE_VERSION;
 
 /**
  * Image Processor Class

@@ -33,32 +33,31 @@ import {
 } from "./anthropic.ts";
 
 // Import new modular components
-import { CONFIG, UPSTREAM_URL, DEFAULT_KEY, validateEnvironment } from "./src/config/constants.ts";
+import { UPSTREAM_URL, DEFAULT_KEY } from "./src/config/constants.ts";
 import { SUPPORTED_MODELS, getModelConfig as getModelConfigNew, ModelCapabilityDetector } from "./src/config/models.ts";
-import { logger } from "./src/utils/logger.ts";
-import { TokenPool } from "./src/services/token-pool.ts";
-import { getAnonymousToken } from "./src/services/anonymous-token.ts";
+// import { TokenPool } from "./src/services/token-pool.ts"; // Using local definition for now
+// import { getAnonymousToken } from "./src/services/anonymous-token.ts"; // Using local definition
 import { SmartHeaderGenerator } from "./src/services/header-generator.ts";
-import { generateSignature } from "./src/services/signature.ts";
-import { ImageProcessor } from "./src/services/image-processor.ts";
-import {
-  recordRequestStats,
-  addLiveRequest,
-  recordAndTrackRequest,
-  getStatsData,
-  getLiveRequestsData
-} from "./src/utils/stats.ts";
-import {
-  setCORSHeaders,
-  createErrorResponse,
-  validateApiKey as validateApiKeyNew,
-  truncateString
-} from "./src/utils/helpers.ts";
-import {
-  transformThinking,
-  processStreamingResponse,
-  collectFullResponse
-} from "./src/utils/stream.ts";
+// import { generateSignature } from "./src/services/signature.ts"; // Using local definition
+// import { ImageProcessor } from "./src/services/image-processor.ts"; // Using local definition
+// import {
+//   recordRequestStats,
+//   addLiveRequest,
+//   recordAndTrackRequest,
+//   getStatsData,
+//   getLiveRequestsData
+// } from "./src/utils/stats.ts"; // Using local definitions
+// import {
+//   setCORSHeaders,
+//   createErrorResponse,
+//   validateApiKey as validateApiKeyNew,
+//   truncateString
+// } from "./src/utils/helpers.ts"; // Using local definitions
+// import {
+//   transformThinking,
+//   processStreamingResponse,
+//   collectFullResponse
+// } from "./src/utils/stream.ts"; // Using local definitions
 
 declare global {
   interface ImportMeta {
@@ -343,217 +342,9 @@ interface Model {
 const THINK_TAGS_MODE = "think"; // options: "strip", "thinking", "think", "raw", "separate"
 
 
-/**
-  * Advanced Mode Detector
-  */
-class ModelCapabilityDetector {
-   /**
-    * Detect model's advanced capabilities (matching Python version exactly)
-    */
-  static detectCapabilities(modelId: string, reasoning?: boolean): ModelCapabilities {
-    const normalizedModelId = modelId.toLowerCase();
+// ModelCapabilityDetector now imported from src/config/models.ts
 
-    return {
-      thinking: this.isThinkingModel(normalizedModelId, reasoning),
-      search: this.isSearchModel(normalizedModelId),
-      advancedSearch: this.isAdvancedSearchModel(normalizedModelId),
-      vision: this.isVisionModel(normalizedModelId),
-      mcp: this.supportsMCP(normalizedModelId),
-    };
-  }
-
-  private static isThinkingModel(modelId: string, reasoning?: boolean): boolean {
-    return modelId.includes("thinking") ||
-           modelId.includes("4.6") ||
-           reasoning === true ||
-           modelId.includes("0727-360b-api");
-  }
-
-  private static isSearchModel(modelId: string): boolean {
-    return modelId.includes("search") ||
-           modelId.includes("web") ||
-           modelId.includes("browser");
-  }
-
-  private static isAdvancedSearchModel(modelId: string): boolean {
-    return modelId.includes("advanced-search") ||
-           modelId.includes("advanced") ||
-           modelId.includes("pro-search");
-  }
-
-  private static isVisionModel(modelId: string): boolean {
-    return modelId.includes("4.5v") ||
-           modelId.includes("vision") ||
-           modelId.includes("image") ||
-           modelId.includes("multimodal");
-  }
-
-   private static supportsMCP(modelId: string): boolean {
-     // Most advanced models support MCP (matching Python version exactly)
-     return this.isThinkingModel(modelId) ||
-            this.isSearchModel(modelId) ||
-            this.isAdvancedSearchModel(modelId);
-   }
-
-   /**
-    * Get MCP server list for model (matching Python version exactly)
-    */
-  static getMCPServersForModel(capabilities: ModelCapabilities): string[] {
-    const servers: string[] = [];
-
-    if (capabilities.advancedSearch) {
-      servers.push("advanced-search");
-      debugLog("🔍 Detected advanced search model, adding advanced-search MCP server");
-    } else if (capabilities.search) {
-      servers.push("deep-web-search");
-    }
-
-     // Add hidden MCP server features
-     if (capabilities.mcp) {
-       // These servers are added as hidden features to features
-       debugLog("Model supports hidden MCP features: vibe-coding, ppt-maker, image-search, deep-research");
-     }
-
-    return servers;
-  }
-
-   /**
-    * Get hidden MCP features list (matching Python version exactly)
-    */
-  static getHiddenMCPFeatures(): Array<{ type: string; server: string; status: string }> {
-    return [
-      { type: "mcp", server: "vibe-coding", status: "hidden" },
-      { type: "mcp", server: "ppt-maker", status: "hidden" },
-      { type: "mcp", server: "image-search", status: "hidden" },
-      { type: "mcp", server: "deep-research", status: "hidden" },
-      { type: "tool_selector", server: "tool_selector", status: "hidden" },
-      { type: "mcp", server: "advanced-search", status: "hidden" }
-    ];
-  }
-}
-
-/**
-   * Smart Header Generator (Updated to match Python version)
-   * Dynamically generate real browser request headers with proper sec-ch-ua
-   */
-class SmartHeaderGenerator {
-   private static cachedHeaders: Record<string, string> | null = null;
-   private static cacheExpiry: number = 0;
-   private static readonly CACHE_DURATION = 5 * 60 * 1000; // 5-minute cache
-
-   // Browser configurations matching Python version exactly
-   private static readonly browserConfigs = [
-     {
-       ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
-       secChUa: '"Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"',
-       version: "140.0.0.0"
-     },
-     {
-       ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
-       secChUa: '"Chromium";v="139", "Not=A?Brand";v="24", "Google Chrome";v="139"',
-       version: "139.0.0.0"
-     },
-     {
-       ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0",
-       secChUa: '"Microsoft Edge";v="141", "Not?A_Brand";v="8", "Chromium";v="141"',
-       version: "141.0.0.0"
-     },
-     {
-       ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0",
-       secChUa: '"Not_A Brand";v="8", "Chromium";v="126", "Firefox";v="126"',
-       version: "126.0"
-     },
-     {
-       ua: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
-       secChUa: '"Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"',
-       version: "140.0.0.0"
-     }
-   ];
-
-    /**
-     * Generate smart browser headers (matching Python version exactly)
-     */
-    static async generateHeaders(chatId: string = ""): Promise<Record<string, string>> {
-      // Check cache
-      const now = Date.now();
-     if (this.cachedHeaders && this.cacheExpiry > now) {
-       const headers = { ...this.cachedHeaders };
-       if (chatId) {
-         headers["Referer"] = `${ORIGIN_BASE}/c/${chatId}`;
-       }
-       return headers;
-      }
-
-      // Fetch latest FE version before generating headers
-      await fetchLatestFEVersion();
-
-      // Generate new headers
-      const headers = this.generateFreshHeaders(chatId);
-     this.cachedHeaders = headers;
-     this.cacheExpiry = now + this.CACHE_DURATION;
-
-      debugLog("Python version smart headers generated and cached with latest FE version: %s", X_FE_VERSION);
-      return headers;
-   }
-
-    private static generateFreshHeaders(chatId: string = ""): Record<string, string> {
-      // Randomly select browser configuration (weighted towards Chrome/Edge like Python version)
-      const config = this.browserConfigs[Math.floor(Math.random() * this.browserConfigs.length)];
-
-      // Generate sec-ch-ua based on user agent (matching Python logic exactly)
-      let secChUa = config.secChUa;
-      let secChUaPlatform = '"Windows"';
-
-      if (config.ua.includes("Edg/")) {
-        // Edge browser
-        const edgeVersion = config.version.split(".")[0];
-        secChUa = `"Microsoft Edge";v="${edgeVersion}", "Chromium";v="${edgeVersion}", "Not_A Brand";v="24"`;
-      } else if (config.ua.includes("Firefox/")) {
-        // Firefox browser
-        const firefoxVersion = config.version.split(".")[0];
-        secChUa = `"Not_A Brand";v="8", "Chromium";v="${firefoxVersion}", "Firefox";v="${firefoxVersion}"`;
-      } else if (config.ua.includes("Macintosh")) {
-        // macOS Chrome
-        secChUaPlatform = '"macOS"';
-      }
-
-      const referer = chatId ? `${ORIGIN_BASE}/c/${chatId}` : `${ORIGIN_BASE}/`;
-
-      return {
-        // Basic headers (matching Python version exactly)
-        "Accept": "application/json, text/event-stream",
-        "Accept-Language": `${DEFAULT_LANGUAGE},en;q=0.9,zh;q=0.8`,
-        "Accept-Encoding": "gzip, deflate, br",
-        "Cache-Control": "no-cache",
-        "Connection": "keep-alive",
-        "Content-Type": "application/json",
-        "Pragma": "no-cache",
-
-        // Browser-specific headers (matching Python version exactly)
-        "User-Agent": config.ua,
-        "Sec-Ch-Ua": secChUa,
-        "Sec-Ch-Ua-Mobile": "?0",
-        "Sec-Ch-Ua-Platform": secChUaPlatform,
-        "Sec-Fetch-Dest": "empty",
-        "Sec-Fetch-Mode": "cors",
-        "Sec-Fetch-Site": "same-origin",
-
-        // Z.AI specific headers
-        "Origin": ORIGIN_BASE,
-        "Referer": referer,
-        "X-Fe-Version": X_FE_VERSION,
-     };
-   }
-
-    /**
-     * Clear cache
-     */
-   static clearCache(): void {
-     this.cachedHeaders = null;
-     this.cacheExpiry = 0;
-      debugLog("Header cache cleared");
-   }
- }
+// SmartHeaderGenerator now imported from src/services/header-generator.ts
 
 /**
   * Browser Fingerprint Parameter Generator
@@ -661,7 +452,7 @@ const ORIGIN_BASE = "https://chat.z.ai";
 /**
  * Fetch latest FE version from Z.ai website (matching Python version)
  */
-async function fetchLatestFEVersion(): Promise<string> {
+async function _fetchLatestFEVersion(): Promise<string> {
   try {
     debugLog("Fetching latest FE version from Z.ai website");
 
@@ -697,9 +488,8 @@ async function fetchLatestFEVersion(): Promise<string> {
 
 /**
  * Environment variable configuration
+ * (UPSTREAM_URL and DEFAULT_KEY now imported from src/config/constants.ts)
  */
-const UPSTREAM_URL = Deno.env.get("UPSTREAM_URL") || "https://chat.z.ai/api/chat/completions";
-const DEFAULT_KEY = Deno.env.get("DEFAULT_KEY") || "sk-your-key";
 const ZAI_TOKEN = Deno.env.get("ZAI_TOKEN") || "";
 const DEFAULT_LANGUAGE = Deno.env.get("DEFAULT_LANGUAGE") || "en-US";
 
@@ -1120,74 +910,13 @@ interface ModelConfig {
   };
 }
 
-const SUPPORTED_MODELS: ModelConfig[] = [
-  {
-    id: "0727-360B-API",
-    name: "GLM-4.5",
-    upstreamId: "0727-360B-API",
-    capabilities: {
-      vision: false,
-      mcp: true,
-      thinking: true
-    },
-    defaultParams: {
-      top_p: 0.95,
-      temperature: 0.6,
-      max_tokens: 80000
-    }
-  },
-  {
-    id: "GLM-4-6-API-V1",
-    name: "GLM-4.6",
-    upstreamId: "GLM-4-6-API-V1",
-    capabilities: {
-      vision: false,
-      mcp: true,
-      thinking: true
-    },
-    defaultParams: {
-      top_p: 0.95,
-      temperature: 0.6,
-      max_tokens: 195000
-    }
-  },
-  {
-    id: "glm-4.5v",
-    name: "GLM-4.5V",
-    upstreamId: "glm-4.5v",
-    capabilities: {
-      vision: true,
-      mcp: false,
-      thinking: true
-    },
-    defaultParams: {
-      top_p: 0.6,
-      temperature: 0.8
-    }
-  }
-];
-
-// Default model
-const DEFAULT_MODEL = SUPPORTED_MODELS[0];
-
-// Get model configuration by ID
-function getModelConfig(modelId: string): ModelConfig {
-  // Normalize model ID to handle case differences from various clients
-  const normalizedModelId = normalizeModelId(modelId);
-  const found = SUPPORTED_MODELS.find(m => m.id === normalizedModelId);
-
-  if (!found) {
-    debugLog("⚠️ Model config not found: %s (normalized: %s). Using default: %s", 
-      modelId, normalizedModelId, DEFAULT_MODEL.name);
-  }
-
-  return found || DEFAULT_MODEL;
-}
+// SUPPORTED_MODELS and getModelConfig now imported from src/config/models.ts
+const getModelConfig = getModelConfigNew; // Alias for compatibility
 
 /**
  * Normalize model ID to handle different client naming formats
  */
-function normalizeModelId(modelId: string): string {
+function _normalizeModelId(modelId: string): string {
   const normalized = modelId.toLowerCase().trim();
  
   const modelMappings: Record<string, string> = {

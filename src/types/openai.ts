@@ -32,7 +32,7 @@ export interface Choice {
   index: number;
   message?: Message;
   delta?: Delta;
-  finish_reason?: string;
+  finish_reason?: string | null;
 }
 
 export interface Delta {

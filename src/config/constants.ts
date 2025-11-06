@@ -23,7 +23,7 @@ export const CONFIG = {
   DEFAULT_TRUNCATE_LENGTH: 50,
   
   // Upstream Configuration
-  DEFAULT_FE_VERSION: "prod-fe-1.0.95",
+  DEFAULT_FE_VERSION: "prod-fe-1.0.95" as string,
   DEFAULT_SIGNING_KEY: "key-@@@@)))()((9))-xxxx&&&%%%%%",
   ORIGIN_BASE: "https://chat.z.ai",
   
