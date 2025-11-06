@@ -19,6 +19,7 @@ Customize your experience with these settings:
 - `DEFAULT_STREAM` — default streaming mode (true/false, default: true) 🌊
 - `DASHBOARD_ENABLED` — enable dashboard (true/false, default: true) 📊
 - `PORT` — server port (default: 9090) 🌐
+- `DEFAULT_LANGUAGE` — default language for Accept-Language headers and date formatting (default: en-US, examples: zh-CN, fr-FR) 🌍
 - `ZAI_SIGNING_SECRET` — custom key for request signature generation (optional, uses secure default if not set) 🔐
 
 ## 🔐 New Features and Configuration

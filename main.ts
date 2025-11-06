@@ -494,7 +494,7 @@ class SmartHeaderGenerator {
       return {
         // Basic headers (matching Python version exactly)
         "Accept": "application/json, text/event-stream",
-        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        "Accept-Language": `${DEFAULT_LANGUAGE},en;q=0.9,zh;q=0.8`,
         "Accept-Encoding": "gzip, deflate, br",
         "Cache-Control": "no-cache",
         "Connection": "keep-alive",
@@ -578,8 +578,8 @@ class _BrowserFingerprintGenerator {
 
        // Browser environment parameters (matching Python version)
        "user_agent": BROWSER_UA,
-       "language": "zh-CN",
-       "languages": "zh-CN,zh",
+       "language": DEFAULT_LANGUAGE,
+       "languages": `${DEFAULT_LANGUAGE},en`,
        "timezone": "Asia/Shanghai",
        "cookie_enabled": "true",
 
@@ -641,7 +641,7 @@ async function fetchLatestFEVersion(): Promise<string> {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        "Accept-Language": `${DEFAULT_LANGUAGE},en;q=0.9,zh;q=0.8`,
         "Cache-Control": "no-cache"
       }
     });
@@ -673,6 +673,7 @@ async function fetchLatestFEVersion(): Promise<string> {
 const UPSTREAM_URL = Deno.env.get("UPSTREAM_URL") || "https://chat.z.ai/api/chat/completions";
 const DEFAULT_KEY = Deno.env.get("DEFAULT_KEY") || "sk-your-key";
 const ZAI_TOKEN = Deno.env.get("ZAI_TOKEN") || "";
+const DEFAULT_LANGUAGE = Deno.env.get("DEFAULT_LANGUAGE") || "en-US";
 
 /**
   * Token Pool Management System
@@ -928,7 +929,7 @@ class ImageProcessor {
          method: "POST",
          headers: {
            "Accept": "*/*",
-           "Accept-Language": "zh-CN,zh;q=0.9",
+           "Accept-Language": `${DEFAULT_LANGUAGE},en;q=0.9`,
            "Authorization": `Bearer ${token}`,
            "Cache-Control": "no-cache",
            "Connection": "keep-alive",
@@ -1492,7 +1493,7 @@ async function getAnonymousToken(): Promise<string> {
          headers: {
            ...dynamicHeaders,
            "Accept": "*/*",
-           "Accept-Language": "en-US,en;q=0.9",
+           "Accept-Language": `${DEFAULT_LANGUAGE},en;q=0.9`,
          }
        });
 
@@ -2560,7 +2561,7 @@ async function handleAnthropicMessages(request: Request): Promise<Response> {
     tool_servers: [],
     variables: {
       "{{USER_NAME}}": `Guest-${Date.now()}`,
-      "{{CURRENT_DATETIME}}": new Date().toLocaleString('en-US')
+      "{{CURRENT_DATETIME}}": new Date().toLocaleString(DEFAULT_LANGUAGE)
     }
   };
 
@@ -3235,14 +3236,14 @@ async function handleChatCompletions(request: Request): Promise<Response> {
      variables: {
        "{{USER_NAME}}": "Guest",
        "{{USER_LOCATION}}": "Unknown",
-       "{{CURRENT_DATETIME}}": new Date().toLocaleString("zh-CN"),
-       "{{CURRENT_DATE}}": new Date().toLocaleDateString("zh-CN"),
-       "{{CURRENT_TIME}}": new Date().toLocaleTimeString("zh-CN"),
-       "{{CURRENT_WEEKDAY}}": new Date().toLocaleDateString("zh-CN", {
+       "{{CURRENT_DATETIME}}": new Date().toLocaleString(DEFAULT_LANGUAGE),
+       "{{CURRENT_DATE}}": new Date().toLocaleDateString(DEFAULT_LANGUAGE),
+       "{{CURRENT_TIME}}": new Date().toLocaleTimeString(DEFAULT_LANGUAGE),
+       "{{CURRENT_WEEKDAY}}": new Date().toLocaleDateString(DEFAULT_LANGUAGE, {
          weekday: "long",
        }),
        "{{CURRENT_TIMEZONE}}": "Asia/Shanghai",
-       "{{USER_LANGUAGE}}": "zh-CN",
+       "{{USER_LANGUAGE}}": DEFAULT_LANGUAGE,
      },
      // Add file list (if there are uploaded images and not vision model)
      ...(uploadedFiles.length > 0 && !capabilities.vision ? { files: uploadedFiles } : {}),

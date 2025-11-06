@@ -8,7 +8,7 @@ Super easy deployment to the cloud!
 
 - 📤 Push your repository containing main.ts to GitHub
 - 🏗️ Create a new project on Deno Deploy and connect the repo
-- ⚙️ Set environment variables (DEFAULT_KEY, ZAI_TOKEN, DEBUG_MODE, etc)
+- ⚙️ Set environment variables (DEFAULT_KEY, ZAI_TOKEN, DEFAULT_LANGUAGE, DEBUG_MODE, etc)
 
 ## 🏠 Self-hosted / Local
 
