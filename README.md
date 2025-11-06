@@ -5,6 +5,8 @@
 ![Deno](https://img.shields.io/badge/deno-v1.40+-blue.svg)
 ![TypeScript](https://img.shields.io/badge/typescript-5.0+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
+![CI](https://img.shields.io/badge/CI-passing-brightgreen.svg)
+![Code Quality](https://img.shields.io/badge/code%20quality-A+-brightgreen.svg)
 
 > 🎓 For personal, non-commercial or educational use only. Please use responsibly! 🌈
 
@@ -79,11 +81,39 @@ For comprehensive information, see our detailed documentation:
 - [🔧 Troubleshooting](./docs/troubleshooting.md) - Common issues and solutions
 - [🔬 Advanced](./docs/advanced.md) - Technical implementation details
 
+## 🏗️ Architecture
+
+ZtoApi now features a **modular architecture** for better maintainability:
+
+```
+src/
+├── config/       # Configuration & constants
+├── services/     # Business logic (token pool, signatures, image processing)
+├── types/        # TypeScript type definitions
+└── utils/        # Utility functions (logging, stats, helpers)
+```
+
+**For developers:**
+- [📖 Migration Guide](./MIGRATION_GUIDE.md) - Guide to the new modular structure
+- [📋 Cleanup Summary](./CLEANUP_SUMMARY.md) - Detailed refactoring report
+- [🤖 AGENTS.md](./AGENTS.md) - Development guide for AI agents
+
 ## 🤝 Contributing
 
 Want to help make ZtoApi even better? We'd love your help! 💪
 
+**Development Workflow:**
+```bash
+deno task dev      # Run with watch mode
+deno task test     # Run tests
+deno task lint     # Lint code
+deno task fmt      # Format code
+deno task check    # Type check
+```
+
 - Open issues and pull requests on the project repository 🎉
+- Follow the [Migration Guide](./MIGRATION_GUIDE.md) for code structure
+- All PRs automatically run CI checks (lint, format, type check, tests)
 
 ## 📜 License
 

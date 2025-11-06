@@ -32,6 +32,34 @@ import {
   getClaudeModels
 } from "./anthropic.ts";
 
+// Import new modular components
+import { CONFIG, UPSTREAM_URL, DEFAULT_KEY, validateEnvironment } from "./src/config/constants.ts";
+import { SUPPORTED_MODELS, getModelConfig as getModelConfigNew, ModelCapabilityDetector } from "./src/config/models.ts";
+import { logger } from "./src/utils/logger.ts";
+import { TokenPool } from "./src/services/token-pool.ts";
+import { getAnonymousToken } from "./src/services/anonymous-token.ts";
+import { SmartHeaderGenerator } from "./src/services/header-generator.ts";
+import { generateSignature } from "./src/services/signature.ts";
+import { ImageProcessor } from "./src/services/image-processor.ts";
+import {
+  recordRequestStats,
+  addLiveRequest,
+  recordAndTrackRequest,
+  getStatsData,
+  getLiveRequestsData
+} from "./src/utils/stats.ts";
+import {
+  setCORSHeaders,
+  createErrorResponse,
+  validateApiKey as validateApiKeyNew,
+  truncateString
+} from "./src/utils/helpers.ts";
+import {
+  transformThinking,
+  processStreamingResponse,
+  collectFullResponse
+} from "./src/utils/stream.ts";
+
 declare global {
   interface ImportMeta {
     main: boolean;
