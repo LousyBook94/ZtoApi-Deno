@@ -1909,6 +1909,10 @@ async function processUpstreamStream(
   let accumulatedThinking = "";
   let thinkingSent = false;
 
+  // Track thinking phase state for incremental streaming
+  let inThinkingPhase = false;
+  let thinkingTagOpened = false;
+
   try {
     while (true) {
       const { done, value } = await reader.read();
@@ -2007,33 +2011,10 @@ async function processUpstreamStream(
                   thinkingSent = true;
                 }
               } else {
-                // For other modes, process the complete thinking block from edit_content
-                debugLog("Processing complete thinking block from edit_content for mode: %s", THINK_TAGS_MODE);
-
-                const transformed = transformThinking(upstreamData.data.edit_content, thinkTagsMode);
-                const processedContent = typeof transformed === "string" ? transformed : transformed.content;
-
-                if (processedContent && processedContent.trim() !== "") {
-                  debugLog("Sending processed thinking content from edit_content, length: %d", processedContent.length);
-
-                  const chunk: OpenAIResponse = {
-                    id: `chatcmpl-${Date.now()}`,
-                    object: "chat.completion.chunk",
-                    created: Math.floor(Date.now() / 1000),
-                    model: modelName,
-                    choices: [
-                      {
-                        index: 0,
-                        delta: { content: processedContent }
-                      }
-                    ]
-                  };
-
-                  await writer.write(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
-                  thinkingSent = true;
-                } else {
-                  debugLog("Processed thinking content from edit_content is empty");
-                }
+                // For other modes, we're now streaming incrementally via delta_content
+                // So we skip edit_content to avoid duplication
+                debugLog("Skipping edit_content as we're streaming incrementally via delta_content");
+                thinkingSent = true; // Mark as sent to avoid processing it again
               }
             }
 
@@ -2091,22 +2072,30 @@ async function processUpstreamStream(
                   await writer.write(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
                 }
               } else {
-                // Other modes: accumulate thinking content and process when complete
+                // Other modes: stream thinking content incrementally
                 if (isThinking) {
-                  accumulatedThinking += rawContent;
-                  debugLog("Accumulated thinking content, total length: %d", accumulatedThinking.length);
+                  // Send opening tag when entering thinking phase
+                  if (!inThinkingPhase) {
+                    inThinkingPhase = true;
+                    let openingTag = "";
 
-                  // Check if thinking block is complete (contains closing </details>)
-                  if (accumulatedThinking.includes("</details>") && !thinkingSent) {
-                    debugLog("Processing complete thinking block, length: %d", accumulatedThinking.length);
-                    debugLog("Thinking content preview: %s", accumulatedThinking.substring(0, 200));
+                    switch (thinkTagsMode) {
+                      case "thinking":
+                        openingTag = "<thinking>";
+                        break;
+                      case "think":
+                        openingTag = "<think>";
+                        break;
+                      case "strip":
+                        openingTag = ""; // No tag for strip mode
+                        break;
+                      case "raw":
+                        openingTag = ""; // Will be included in rawContent
+                        break;
+                    }
 
-                    const transformed = transformThinking(accumulatedThinking, thinkTagsMode);
-                    const processedContent = typeof transformed === "string" ? transformed : transformed.content;
-
-                    if (processedContent && processedContent.trim() !== "") {
-                      debugLog("Sending processed thinking content, length: %d", processedContent.length);
-
+                    if (openingTag) {
+                      debugLog("Sending opening thinking tag: %s", openingTag);
                       const chunk: OpenAIResponse = {
                         id: `chatcmpl-${Date.now()}`,
                         object: "chat.completion.chunk",
@@ -2115,22 +2104,80 @@ async function processUpstreamStream(
                         choices: [
                           {
                             index: 0,
-                            delta: { content: processedContent }
+                            delta: { content: openingTag }
                           }
                         ]
                       };
-
                       await writer.write(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
-                      thinkingSent = true;
-                    } else {
-                      debugLog("Processed thinking content is empty or whitespace-only");
+                      thinkingTagOpened = true;
                     }
-                  } else {
-                    debugLog("Thinking block not complete yet, contains </details>: %s, thinkingSent: %s",
-                      accumulatedThinking.includes("</details>"), thinkingSent);
                   }
-                  // Don't send individual thinking chunks - wait for complete block
+
+                  // Process and stream the thinking content chunk
+                  let processedChunk = rawContent;
+
+                  // Clean up the content based on mode
+                  if (thinkTagsMode !== "raw") {
+                    // Remove <details> tags, <summary> tags, and "> " prefixes
+                    processedChunk = processedChunk.replace(/<details[^>]*>/g, "");
+                    processedChunk = processedChunk.replace(/<\/details>/g, "");
+                    processedChunk = processedChunk.replace(/<summary>.*?<\/summary>/gs, "");
+                    processedChunk = processedChunk.replace(/^> /gm, "");
+                  }
+
+                  if (processedChunk) {
+                    debugLog("Streaming thinking chunk, length: %d", processedChunk.length);
+
+                    const chunk: OpenAIResponse = {
+                      id: `chatcmpl-${Date.now()}`,
+                      object: "chat.completion.chunk",
+                      created: Math.floor(Date.now() / 1000),
+                      model: modelName,
+                      choices: [
+                        {
+                          index: 0,
+                          delta: { content: processedChunk }
+                        }
+                      ]
+                    };
+
+                    await writer.write(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
+                  }
                 } else {
+                  // Exiting thinking phase - send closing tag if needed
+                  if (inThinkingPhase && thinkingTagOpened) {
+                    let closingTag = "";
+
+                    switch (thinkTagsMode) {
+                      case "thinking":
+                        closingTag = "</thinking>";
+                        break;
+                      case "think":
+                        closingTag = "</think>";
+                        break;
+                    }
+
+                    if (closingTag) {
+                      debugLog("Sending closing thinking tag: %s", closingTag);
+                      const chunk: OpenAIResponse = {
+                        id: `chatcmpl-${Date.now()}`,
+                        object: "chat.completion.chunk",
+                        created: Math.floor(Date.now() / 1000),
+                        model: modelName,
+                        choices: [
+                          {
+                            index: 0,
+                            delta: { content: closingTag }
+                          }
+                        ]
+                      };
+                      await writer.write(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
+                    }
+
+                    inThinkingPhase = false;
+                    thinkingTagOpened = false;
+                  }
+
                   // Regular content (non-thinking)
                   debugLog("Sending regular content: %s", rawContent);
 
@@ -2899,18 +2946,26 @@ async function handleChatCompletions(request: Request): Promise<Response> {
   }
 
   // Read feature control headers
-  const thinkingHeader = request.headers.get("X-Feature-Thinking");
+  // Support both X-Feature-Thinking and X-Thinking for convenience
+  const thinkingHeader = request.headers.get("X-Feature-Thinking") || request.headers.get("X-Thinking");
   const webSearchHeader = request.headers.get("X-Feature-Web-Search");
   const autoWebSearchHeader = request.headers.get("X-Feature-Auto-Web-Search");
   const imageGenerationHeader = request.headers.get("X-Feature-Image-Generation");
   const titleGenerationHeader = request.headers.get("X-Feature-Title-Generation");
   const tagsGenerationHeader = request.headers.get("X-Feature-Tags-Generation");
   const mcpHeader = request.headers.get("X-Feature-MCP");
-  
+
   // Read think tags mode customization header
   const thinkTagsModeHeader = request.headers.get("X-Think-Tags-Mode");
 
   // Parse header values to boolean (default to model capabilities if not specified)
+  const parseBooleanHeader = (headerValue: string | null): boolean | null => {
+    if (headerValue === null) return null;
+    const normalized = headerValue.toLowerCase().trim();
+    if (normalized === "true" || normalized === "1") return true;
+    if (normalized === "false" || normalized === "0") return false;
+    return null;
+  };
 
   // Parse think tags mode header with validation
   const parseThinkTagsMode = (headerValue: string | null): "strip" | "thinking" | "think" | "raw" | "separate" => {
@@ -3140,8 +3195,13 @@ async function handleChatCompletions(request: Request): Promise<Response> {
    const lastUserContent = ImageProcessor.extractLastUserContent(req.messages);
 
    // Determine model characteristics (consistent with Python version)
-   const isThinking = capabilities.thinking;
+   // Allow header to override capability detection
+   const thinkingHeaderValue = parseBooleanHeader(thinkingHeader);
+   const isThinking = thinkingHeaderValue !== null ? thinkingHeaderValue : capabilities.thinking;
    const isSearch = capabilities.search || capabilities.advancedSearch;
+
+   debugLog("🧠 Thinking mode: %s (header: %s, capability: %s, final: %s)",
+     isThinking, thinkingHeader || "not set", capabilities.thinking, isThinking);
 
    // Construct upstream request (matching Python version exactly)
    const upstreamReq: UpstreamRequest = {
