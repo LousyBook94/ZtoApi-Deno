@@ -5,22 +5,12 @@ services:
       dockerfile: Dockerfile
     container_name: ztoapi_service
     ports:
-      - "9090:9090"
-    environment:
-      - PORT=9090
-      - DEFAULT_KEY=sk-your-secret-key-here
-      - DEBUG_MODE=true
-      - DASHBOARD_ENABLED=true
-      - DEFAULT_STREAM=true
-      # Uncomment and set your Z.ai token for authenticated requests
-      # - ZAI_TOKEN=your-zai-token-here
-      # For multiple tokens, use comma-separated values:
-      # - ZAI_TOKENS=token1,token2,token3
-      # Optional: Custom signing secret for enhanced security
-      # - ZAI_SIGNING_SECRET=your-custom-signing-secret
+      - "${PORT:-9090}:${PORT:-9090}"
+    env_file:
+      - .env
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9090/v1/models"]
+      test: ["CMD", "deno", "eval", "await fetch('http://localhost:${PORT:-9090}/v1/models').then(r => { if (!r.ok) throw new Error() })"]
       interval: 30s
       timeout: 10s
       retries: 3

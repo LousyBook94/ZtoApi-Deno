@@ -34,11 +34,6 @@ Thumbs.db
 # Node modules (if any)
 node_modules/
 
-# Docker files
-Dockerfile
-docker-compose.yml
-.dockerignore
-
 # Environment files
 .env
 .env.local
