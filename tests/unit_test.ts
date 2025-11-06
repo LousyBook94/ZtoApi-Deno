@@ -57,7 +57,7 @@ Deno.test("setCORSHeaders sets correct headers", () => {
   setCORSHeaders(headers);
 
   assertEquals(headers.get("Access-Control-Allow-Origin"), "*");
-  assertEquals(headers.get("Access-Control-Allow-Methods"), "GET, POST, PUT, DELETE, OPTIONS");
+  assertEquals(headers.get("Access-Control-Allow-Methods"), "GET, POST, OPTIONS");
   assertExists(headers.get("Access-Control-Allow-Headers"));
   assertEquals(headers.get("Access-Control-Allow-Credentials"), "true");
 });
