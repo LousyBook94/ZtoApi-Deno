@@ -23,4 +23,4 @@ Found an issue or want to contribute? Visit the main [README](../README.md) for 
 
 ---
 
-*This documentation is organized for easy navigation and maintenance. Each section focuses on a specific aspect of ZtoApi.*
+_This documentation is organized for easy navigation and maintenance. Each section focuses on a specific aspect of ZtoApi._

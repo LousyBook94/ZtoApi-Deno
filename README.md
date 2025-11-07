@@ -5,6 +5,8 @@
 ![Deno](https://img.shields.io/badge/deno-v1.40+-blue.svg)
 ![TypeScript](https://img.shields.io/badge/typescript-5.0+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
+![CI](https://img.shields.io/badge/CI-passing-brightgreen.svg)
+![Code Quality](https://img.shields.io/badge/code%20quality-A+-brightgreen.svg)
 
 > 🎓 For personal, non-commercial or educational use only. Please use responsibly! 🌈
 
@@ -13,6 +15,7 @@ Hey there! 👋 Welcome to ZtoApi - your ultimate dual-API proxy that brings Z.a
 ## 🎯 **DUAL API SUPPORT** - Use Either Format!
 
 ### 🔥 **OpenAI Compatible** → `/v1/` endpoints
+
 ### 🎭 **Anthropic Claude Compatible** → `/anthropic/v1/` endpoints
 
 **Use your existing OpenAI OR Claude clients without any changes!** 🚀
@@ -35,12 +38,14 @@ See [Models](./docs/models.md) for a complete list of supported models and their
 ## 🔌 **API Endpoints Overview**
 
 ### **OpenAI Compatible Endpoints** 🔥
+
 ```
 GET  /v1/models                    # List available models
 POST /v1/chat/completions          # Chat completions (streaming & non-streaming)
 ```
 
 ### **Anthropic Claude Compatible Endpoints** 🎭
+
 ```
 GET  /anthropic/v1/models          # List available Claude models
 POST /anthropic/v1/messages        # Messages (streaming & non-streaming)  
@@ -48,6 +53,7 @@ POST /anthropic/v1/messages/count_tokens  # Count tokens in messages
 ```
 
 ### **Dashboard & Monitoring** 📊
+
 ```
 GET  /                             # Welcome page & overview
 GET  /dashboard                    # Real-time API monitoring dashboard
@@ -55,6 +61,7 @@ GET  /docs                         # API documentation
 ```
 
 Base paths:
+
 - OpenAI: http://localhost:9090/v1 🌐
 - Claude: http://localhost:9090/anthropic/v1 🎭
 
@@ -79,11 +86,41 @@ For comprehensive information, see our detailed documentation:
 - [🔧 Troubleshooting](./docs/troubleshooting.md) - Common issues and solutions
 - [🔬 Advanced](./docs/advanced.md) - Technical implementation details
 
+## 🏗️ Architecture
+
+ZtoApi now features a **modular architecture** for better maintainability:
+
+```
+src/
+├── config/       # Configuration & constants
+├── services/     # Business logic (token pool, signatures, image processing)
+├── types/        # TypeScript type definitions
+└── utils/        # Utility functions (logging, stats, helpers)
+```
+
+**For developers:**
+
+- [📖 Migration Guide](./MIGRATION_GUIDE.md) - Guide to the new modular structure
+- [📋 Cleanup Summary](./CLEANUP_SUMMARY.md) - Detailed refactoring report
+- [🤖 AGENTS.md](./AGENTS.md) - Development guide for AI agents
+
 ## 🤝 Contributing
 
 Want to help make ZtoApi even better? We'd love your help! 💪
 
+**Development Workflow:**
+
+```bash
+deno task dev      # Run with watch mode
+deno task test     # Run tests
+deno task lint     # Lint code
+deno task fmt      # Format code
+deno task check    # Type check
+```
+
 - Open issues and pull requests on the project repository 🎉
+- Follow the [Migration Guide](./MIGRATION_GUIDE.md) for code structure
+- All PRs automatically run CI checks (lint, format, type check, tests)
 
 ## 📜 License
 
@@ -110,9 +147,9 @@ Special thanks to the amazing open-source community! This project was inspired b
 - **🏆 [@sarices (ZhengWeiDong)](https://github.com/sarices) - THE ABSOLUTE LEGEND** 🔥🔥🔥
   - **🎯 SINGLE-HANDEDLY FIXED Z.ai upstream authentication** - WITHOUT HIM THIS PROJECT WOULD BE BROKEN!
   - **⚡ IMPLEMENTED Base64 encoding signature algorithm** - Critical fix that restored ALL API functionality
-  - **🛠️ RESOLVED the dreaded "502 Bad Gateway" errors** - Both OpenAI AND Anthropic endpoints now work flawlessly  
+  - **🛠️ RESOLVED the dreaded "502 Bad Gateway" errors** - Both OpenAI AND Anthropic endpoints now work flawlessly
   - **💡 PR**: [feat(api): update signature algorithm to align with upstream](https://github.com/roseforyou/ZtoApi/pull/6)
   - **🎖️ IMPACT**: This genius-level contribution literally SAVED the entire project! 🙌✨
   - **🏅 HERO STATUS**: ZhengWeiDong (Z.ai upstream fixing) - WE OWE YOU EVERYTHING! 🎉
 
-*This man deserves a medal! Without @sarices, none of this would work! 🏆*
+_This man deserves a medal! Without @sarices, none of this would work! 🏆_

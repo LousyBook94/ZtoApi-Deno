@@ -10,7 +10,12 @@ services:
       - .env
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "deno", "eval", "await fetch('http://localhost:${PORT:-9090}/v1/models').then(r => { if (!r.ok) throw new Error() })"]
+      test: [
+        "CMD",
+        "deno",
+        "eval",
+        "await fetch('http://localhost:${PORT:-9090}/v1/models').then(r => { if (!r.ok) throw new Error() })",
+      ]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -28,9 +28,36 @@ import {
   convertAnthropicToOpenAI,
   convertOpenAIToAnthropic,
   countTokens,
+  getClaudeModels,
   processAnthropicStream,
-  getClaudeModels
 } from "./anthropic.ts";
+
+// Import new modular components
+import { DEFAULT_KEY, UPSTREAM_URL } from "./src/config/constants.ts";
+import { getModelConfig as getModelConfigNew, ModelCapabilityDetector, SUPPORTED_MODELS } from "./src/config/models.ts";
+// import { TokenPool } from "./src/services/token-pool.ts"; // Using local definition for now
+// import { getAnonymousToken } from "./src/services/anonymous-token.ts"; // Using local definition
+import { SmartHeaderGenerator } from "./src/services/header-generator.ts";
+// import { generateSignature } from "./src/services/signature.ts"; // Using local definition
+// import { ImageProcessor } from "./src/services/image-processor.ts"; // Using local definition
+// import {
+//   recordRequestStats,
+//   addLiveRequest,
+//   recordAndTrackRequest,
+//   getStatsData,
+//   getLiveRequestsData
+// } from "./src/utils/stats.ts"; // Using local definitions
+// import {
+//   setCORSHeaders,
+//   createErrorResponse,
+//   validateApiKey as validateApiKeyNew,
+//   truncateString
+// } from "./src/utils/helpers.ts"; // Using local definitions
+// import {
+//   transformThinking,
+//   processStreamingResponse,
+//   collectFullResponse
+// } from "./src/utils/stream.ts"; // Using local definitions
 
 declare global {
   interface ImportMeta {
@@ -134,14 +161,16 @@ interface OpenAIRequest {
  */
 interface Message {
   role: string;
-  content: string | Array<{
-    type: string;
-    text?: string;
-    image_url?: {url: string};
-    video_url?: {url: string};
-    document_url?: {url: string};
-    audio_url?: {url: string};
-  }>;
+  content:
+    | string
+    | Array<{
+      type: string;
+      text?: string;
+      image_url?: { url: string };
+      video_url?: { url: string };
+      document_url?: { url: string };
+      audio_url?: { url: string };
+    }>;
   reasoning_content?: string;
 }
 
@@ -272,7 +301,7 @@ interface UpstreamData {
   type: string;
   data: {
     delta_content: string;
-    edit_content?: string;  // Contains complete thinking block when phase changes
+    edit_content?: string; // Contains complete thinking block when phase changes
     edit_index?: number;
     phase: string;
     done: boolean;
@@ -314,336 +343,129 @@ interface Model {
 // - "separate": separate reasoning into reasoning_content field
 const THINK_TAGS_MODE = "think"; // options: "strip", "thinking", "think", "raw", "separate"
 
+// ModelCapabilityDetector now imported from src/config/models.ts
+
+// SmartHeaderGenerator now imported from src/services/header-generator.ts
 
 /**
-  * Advanced Mode Detector
-  */
-class ModelCapabilityDetector {
-   /**
-    * Detect model's advanced capabilities (matching Python version exactly)
-    */
-  static detectCapabilities(modelId: string, reasoning?: boolean): ModelCapabilities {
-    const normalizedModelId = modelId.toLowerCase();
-
-    return {
-      thinking: this.isThinkingModel(normalizedModelId, reasoning),
-      search: this.isSearchModel(normalizedModelId),
-      advancedSearch: this.isAdvancedSearchModel(normalizedModelId),
-      vision: this.isVisionModel(normalizedModelId),
-      mcp: this.supportsMCP(normalizedModelId),
-    };
-  }
-
-  private static isThinkingModel(modelId: string, reasoning?: boolean): boolean {
-    return modelId.includes("thinking") ||
-           modelId.includes("4.6") ||
-           reasoning === true ||
-           modelId.includes("0727-360b-api");
-  }
-
-  private static isSearchModel(modelId: string): boolean {
-    return modelId.includes("search") ||
-           modelId.includes("web") ||
-           modelId.includes("browser");
-  }
-
-  private static isAdvancedSearchModel(modelId: string): boolean {
-    return modelId.includes("advanced-search") ||
-           modelId.includes("advanced") ||
-           modelId.includes("pro-search");
-  }
-
-  private static isVisionModel(modelId: string): boolean {
-    return modelId.includes("4.5v") ||
-           modelId.includes("vision") ||
-           modelId.includes("image") ||
-           modelId.includes("multimodal");
-  }
-
-   private static supportsMCP(modelId: string): boolean {
-     // Most advanced models support MCP (matching Python version exactly)
-     return this.isThinkingModel(modelId) ||
-            this.isSearchModel(modelId) ||
-            this.isAdvancedSearchModel(modelId);
-   }
-
-   /**
-    * Get MCP server list for model (matching Python version exactly)
-    */
-  static getMCPServersForModel(capabilities: ModelCapabilities): string[] {
-    const servers: string[] = [];
-
-    if (capabilities.advancedSearch) {
-      servers.push("advanced-search");
-      debugLog("🔍 Detected advanced search model, adding advanced-search MCP server");
-    } else if (capabilities.search) {
-      servers.push("deep-web-search");
-    }
-
-     // Add hidden MCP server features
-     if (capabilities.mcp) {
-       // These servers are added as hidden features to features
-       debugLog("Model supports hidden MCP features: vibe-coding, ppt-maker, image-search, deep-research");
-     }
-
-    return servers;
-  }
-
-   /**
-    * Get hidden MCP features list (matching Python version exactly)
-    */
-  static getHiddenMCPFeatures(): Array<{ type: string; server: string; status: string }> {
-    return [
-      { type: "mcp", server: "vibe-coding", status: "hidden" },
-      { type: "mcp", server: "ppt-maker", status: "hidden" },
-      { type: "mcp", server: "image-search", status: "hidden" },
-      { type: "mcp", server: "deep-research", status: "hidden" },
-      { type: "tool_selector", server: "tool_selector", status: "hidden" },
-      { type: "mcp", server: "advanced-search", status: "hidden" }
-    ];
-  }
-}
-
-/**
-   * Smart Header Generator (Updated to match Python version)
-   * Dynamically generate real browser request headers with proper sec-ch-ua
-   */
-class SmartHeaderGenerator {
-   private static cachedHeaders: Record<string, string> | null = null;
-   private static cacheExpiry: number = 0;
-   private static readonly CACHE_DURATION = 5 * 60 * 1000; // 5-minute cache
-
-   // Browser configurations matching Python version exactly
-   private static readonly browserConfigs = [
-     {
-       ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
-       secChUa: '"Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"',
-       version: "140.0.0.0"
-     },
-     {
-       ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
-       secChUa: '"Chromium";v="139", "Not=A?Brand";v="24", "Google Chrome";v="139"',
-       version: "139.0.0.0"
-     },
-     {
-       ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0",
-       secChUa: '"Microsoft Edge";v="141", "Not?A_Brand";v="8", "Chromium";v="141"',
-       version: "141.0.0.0"
-     },
-     {
-       ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0",
-       secChUa: '"Not_A Brand";v="8", "Chromium";v="126", "Firefox";v="126"',
-       version: "126.0"
-     },
-     {
-       ua: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
-       secChUa: '"Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"',
-       version: "140.0.0.0"
-     }
-   ];
-
-    /**
-     * Generate smart browser headers (matching Python version exactly)
-     */
-    static async generateHeaders(chatId: string = ""): Promise<Record<string, string>> {
-      // Check cache
-      const now = Date.now();
-     if (this.cachedHeaders && this.cacheExpiry > now) {
-       const headers = { ...this.cachedHeaders };
-       if (chatId) {
-         headers["Referer"] = `${ORIGIN_BASE}/c/${chatId}`;
-       }
-       return headers;
-      }
-
-      // Fetch latest FE version before generating headers
-      await fetchLatestFEVersion();
-
-      // Generate new headers
-      const headers = this.generateFreshHeaders(chatId);
-     this.cachedHeaders = headers;
-     this.cacheExpiry = now + this.CACHE_DURATION;
-
-      debugLog("Python version smart headers generated and cached with latest FE version: %s", X_FE_VERSION);
-      return headers;
-   }
-
-    private static generateFreshHeaders(chatId: string = ""): Record<string, string> {
-      // Randomly select browser configuration (weighted towards Chrome/Edge like Python version)
-      const config = this.browserConfigs[Math.floor(Math.random() * this.browserConfigs.length)];
-
-      // Generate sec-ch-ua based on user agent (matching Python logic exactly)
-      let secChUa = config.secChUa;
-      let secChUaPlatform = '"Windows"';
-
-      if (config.ua.includes("Edg/")) {
-        // Edge browser
-        const edgeVersion = config.version.split(".")[0];
-        secChUa = `"Microsoft Edge";v="${edgeVersion}", "Chromium";v="${edgeVersion}", "Not_A Brand";v="24"`;
-      } else if (config.ua.includes("Firefox/")) {
-        // Firefox browser
-        const firefoxVersion = config.version.split(".")[0];
-        secChUa = `"Not_A Brand";v="8", "Chromium";v="${firefoxVersion}", "Firefox";v="${firefoxVersion}"`;
-      } else if (config.ua.includes("Macintosh")) {
-        // macOS Chrome
-        secChUaPlatform = '"macOS"';
-      }
-
-      const referer = chatId ? `${ORIGIN_BASE}/c/${chatId}` : `${ORIGIN_BASE}/`;
-
-      return {
-        // Basic headers (matching Python version exactly)
-        "Accept": "application/json, text/event-stream",
-        "Accept-Language": `${DEFAULT_LANGUAGE},en;q=0.9,zh;q=0.8`,
-        "Accept-Encoding": "gzip, deflate, br",
-        "Cache-Control": "no-cache",
-        "Connection": "keep-alive",
-        "Content-Type": "application/json",
-        "Pragma": "no-cache",
-
-        // Browser-specific headers (matching Python version exactly)
-        "User-Agent": config.ua,
-        "Sec-Ch-Ua": secChUa,
-        "Sec-Ch-Ua-Mobile": "?0",
-        "Sec-Ch-Ua-Platform": secChUaPlatform,
-        "Sec-Fetch-Dest": "empty",
-        "Sec-Fetch-Mode": "cors",
-        "Sec-Fetch-Site": "same-origin",
-
-        // Z.AI specific headers
-        "Origin": ORIGIN_BASE,
-        "Referer": referer,
-        "X-Fe-Version": X_FE_VERSION,
-     };
-   }
-
-    /**
-     * Clear cache
-     */
-   static clearCache(): void {
-     this.cachedHeaders = null;
-     this.cacheExpiry = 0;
-      debugLog("Header cache cleared");
-   }
- }
-
-/**
-  * Browser Fingerprint Parameter Generator
-  */
+ * Browser Fingerprint Parameter Generator
+ */
 class _BrowserFingerprintGenerator {
-   /**
-    * Generate complete browser fingerprint parameters (matching Python version)
-    */
+  /**
+   * Generate complete browser fingerprint parameters (matching Python version)
+   */
   static generateFingerprintParams(
     timestamp: number,
     requestId: string,
     token: string,
-    chatId: string = ""
-   ): Record<string, string> {
-     // Extract user ID from JWT token (multi-field support, consistent with Python version)
-     let userId = "guest";
-     try {
-       const tokenParts = token.split(".");
-       if (tokenParts.length === 3) {
-         const payload = JSON.parse(atob(tokenParts[1]));
+    chatId: string = "",
+  ): Record<string, string> {
+    // Extract user ID from JWT token (multi-field support, consistent with Python version)
+    let userId = "guest";
+    try {
+      const tokenParts = token.split(".");
+      if (tokenParts.length === 3) {
+        const payload = JSON.parse(atob(tokenParts[1]));
 
-         // Try multiple possible user_id fields (consistent with Python version)
-         for (const key of ["id", "user_id", "uid", "sub"]) {
-           const val = payload[key];
-           if (typeof val === "string" || typeof val === "number") {
-             const strVal = String(val);
-             if (strVal.length > 0) {
-               userId = strVal;
-               debugLog("Parsed user_id from JWT: %s (field: %s)", userId, key);
-               break;
-             }
-           }
-         }
-       }
-     } catch (e) {
-       debugLog("Failed to parse JWT token: %v", e);
-     }
+        // Try multiple possible user_id fields (consistent with Python version)
+        for (const key of ["id", "user_id", "uid", "sub"]) {
+          const val = payload[key];
+          if (typeof val === "string" || typeof val === "number") {
+            const strVal = String(val);
+            if (strVal.length > 0) {
+              userId = strVal;
+              debugLog("Parsed user_id from JWT: %s (field: %s)", userId, key);
+              break;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugLog("Failed to parse JWT token: %v", e);
+    }
 
     const now = new Date(timestamp);
-    const localTime = now.toISOString().replace('T', ' ').substring(0, 23) + 'Z';
+    const localTime = now.toISOString().replace("T", " ").substring(0, 23) + "Z";
 
-     return {
-       // Basic parameters (matching Python version)
-       "timestamp": timestamp.toString(),
-       "requestId": requestId,
-       "user_id": userId,
-       "version": "0.0.1",
-       "platform": "web",
-       "token": token,
+    return {
+      // Basic parameters (matching Python version)
+      "timestamp": timestamp.toString(),
+      "requestId": requestId,
+      "user_id": userId,
+      "version": "0.0.1",
+      "platform": "web",
+      "token": token,
 
-       // Browser environment parameters (matching Python version)
-       "user_agent": BROWSER_UA,
-       "language": DEFAULT_LANGUAGE,
-       "languages": `${DEFAULT_LANGUAGE},en`,
-       "timezone": "Asia/Shanghai",
-       "cookie_enabled": "true",
+      // Browser environment parameters (matching Python version)
+      "user_agent": BROWSER_UA,
+      "language": DEFAULT_LANGUAGE,
+      "languages": `${DEFAULT_LANGUAGE},en`,
+      "timezone": "Asia/Shanghai",
+      "cookie_enabled": "true",
 
-       // Screen parameters (matching Python version)
-       "screen_width": "2048",
-       "screen_height": "1152",
-       "screen_resolution": "2048x1152",
-       "viewport_height": "654",
-       "viewport_width": "1038",
-       "viewport_size": "1038x654",
-       "color_depth": "24",
-       "pixel_ratio": "1.25",
+      // Screen parameters (matching Python version)
+      "screen_width": "2048",
+      "screen_height": "1152",
+      "screen_resolution": "2048x1152",
+      "viewport_height": "654",
+      "viewport_width": "1038",
+      "viewport_size": "1038x654",
+      "color_depth": "24",
+      "pixel_ratio": "1.25",
 
-       // URL parameters (matching Python version)
-       "current_url": chatId ? `${ORIGIN_BASE}/c/${chatId}` : ORIGIN_BASE,
-       "pathname": chatId ? `/c/${chatId}` : "/",
-       "search": "",
-       "hash": "",
-       "host": "chat.z.ai",
-       "hostname": "chat.z.ai",
-       "protocol": "https:",
-       "referrer": "",
-       "title": "Z.ai Chat - Free AI powered by GLM-4.6 & GLM-4.5",
+      // URL parameters (matching Python version)
+      "current_url": chatId ? `${ORIGIN_BASE}/c/${chatId}` : ORIGIN_BASE,
+      "pathname": chatId ? `/c/${chatId}` : "/",
+      "search": "",
+      "hash": "",
+      "host": "chat.z.ai",
+      "hostname": "chat.z.ai",
+      "protocol": "https:",
+      "referrer": "",
+      "title": "Z.ai Chat - Free AI powered by GLM-4.6 & GLM-4.5",
 
-       // Time parameters (matching Python version)
-       "timezone_offset": "-480",
-       "local_time": localTime,
-       "utc_time": now.toUTCString(),
+      // Time parameters (matching Python version)
+      "timezone_offset": "-480",
+      "local_time": localTime,
+      "utc_time": now.toUTCString(),
 
-       // Device parameters (matching Python version)
-       "is_mobile": "false",
-       "is_touch": "false",
-       "max_touch_points": "10",
-       "browser_name": "Chrome",
-       "os_name": "Windows",
+      // Device parameters (matching Python version)
+      "is_mobile": "false",
+      "is_touch": "false",
+      "max_touch_points": "10",
+      "browser_name": "Chrome",
+      "os_name": "Windows",
 
-       // Signature parameters (matching Python version)
-       "signature_timestamp": timestamp.toString(),
-     };
-   }
+      // Signature parameters (matching Python version)
+      "signature_timestamp": timestamp.toString(),
+    };
+  }
 }
 
 // Dynamic FE version (will be fetched from website)
 let X_FE_VERSION = "prod-fe-1.0.95"; // fallback default
-const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0";
-const _SEC_CH_UA = "\"Chromium\";v=\"140\", \"Not=A?Brand\";v=\"24\", \"Microsoft Edge\";v=\"140\"";
+const BROWSER_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0";
+const _SEC_CH_UA = '"Chromium";v="140", "Not=A?Brand";v="24", "Microsoft Edge";v="140"';
 const _SEC_CH_UA_MOB = "?0";
-const _SEC_CH_UA_PLAT = "\"Windows\"";
+const _SEC_CH_UA_PLAT = '"Windows"';
 const ORIGIN_BASE = "https://chat.z.ai";
 
 /**
  * Fetch latest FE version from Z.ai website (matching Python version)
  */
-async function fetchLatestFEVersion(): Promise<string> {
+async function _fetchLatestFEVersion(): Promise<string> {
   try {
     debugLog("Fetching latest FE version from Z.ai website");
 
     const response = await fetch(ORIGIN_BASE, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": `${DEFAULT_LANGUAGE},en;q=0.9,zh;q=0.8`,
-        "Cache-Control": "no-cache"
-      }
+        "Cache-Control": "no-cache",
+      },
     });
 
     if (response.ok) {
@@ -666,19 +488,17 @@ async function fetchLatestFEVersion(): Promise<string> {
   return X_FE_VERSION; // fallback to current version
 }
 
-
 /**
  * Environment variable configuration
+ * (UPSTREAM_URL and DEFAULT_KEY now imported from src/config/constants.ts)
  */
-const UPSTREAM_URL = Deno.env.get("UPSTREAM_URL") || "https://chat.z.ai/api/chat/completions";
-const DEFAULT_KEY = Deno.env.get("DEFAULT_KEY") || "sk-your-key";
 const ZAI_TOKEN = Deno.env.get("ZAI_TOKEN") || "";
 const DEFAULT_LANGUAGE = Deno.env.get("DEFAULT_LANGUAGE") || "en-US";
 
 /**
-  * Token Pool Management System
-  * Supports multiple token rotation, automatically switches failed tokens
-  */
+ * Token Pool Management System
+ * Supports multiple token rotation, automatically switches failed tokens
+ */
 const DEBUG_MODE = Deno.env.get("DEBUG_MODE") !== "false"; // default true
 const DEFAULT_STREAM = Deno.env.get("DEFAULT_STREAM") !== "false"; // default true
 const DASHBOARD_ENABLED = Deno.env.get("DASHBOARD_ENABLED") !== "false"; // default true
@@ -701,57 +521,57 @@ class TokenPool {
     this.initializeTokens();
   }
 
-   /**
-    * Initialize Token pool (matching Python version exactly)
-    */
-   private initializeTokens(): void {
-     // Read multiple tokens from environment variable, separated by commas
-     const tokenEnv = Deno.env.get("ZAI_TOKENS");
+  /**
+   * Initialize Token pool (matching Python version exactly)
+   */
+  private initializeTokens(): void {
+    // Read multiple tokens from environment variable, separated by commas
+    const tokenEnv = Deno.env.get("ZAI_TOKENS");
     if (tokenEnv) {
-      const tokenList = tokenEnv.split(",").map(t => t.trim()).filter(t => t.length > 0);
+      const tokenList = tokenEnv.split(",").map((t) => t.trim()).filter((t) => t.length > 0);
       this.tokens = tokenList.map((token, _index) => ({
         token,
         isValid: true,
         lastUsed: 0,
         failureCount: 0,
-        isAnonymous: false
+        isAnonymous: false,
       }));
       debugLog("Token pool initialized, contains %d tokens", this.tokens.length);
-     } else if (ZAI_TOKEN) {
-       // Compatible with single token configuration
-       this.tokens = [{
+    } else if (ZAI_TOKEN) {
+      // Compatible with single token configuration
+      this.tokens = [{
         token: ZAI_TOKEN,
         isValid: true,
         lastUsed: 0,
         failureCount: 0,
-        isAnonymous: false
+        isAnonymous: false,
       }];
       debugLog("Using single token configuration");
     } else {
-       debugLog("⚠️ No token configured, will use anonymous token");
+      debugLog("⚠️ No token configured, will use anonymous token");
     }
   }
 
-   /**
-    * Get next available token (matching Python version exactly)
-    */
-   async getToken(): Promise<string> {
-     // If there are configured tokens, try to use them
-     if (this.tokens.length > 0) {
+  /**
+   * Get next available token (matching Python version exactly)
+   */
+  async getToken(): Promise<string> {
+    // If there are configured tokens, try to use them
+    if (this.tokens.length > 0) {
       const token = this.getNextValidToken();
       if (token) {
         token.lastUsed = Date.now();
         return token.token;
-       }
-     }
- 
-     // Downgrade to anonymous token
-     return await this.getAnonymousToken();
+      }
+    }
+
+    // Downgrade to anonymous token
+    return await this.getAnonymousToken();
   }
 
-   /**
-    * Get next valid configured token (matching Python version exactly)
-    */
+  /**
+   * Get next valid configured token (matching Python version exactly)
+   */
   private getNextValidToken(): TokenInfo | null {
     const startIndex = this.currentIndex;
 
@@ -761,43 +581,43 @@ class TokenPool {
         return tokenInfo;
       }
       this.currentIndex = (this.currentIndex + 1) % this.tokens.length;
-     } while (this.currentIndex !== startIndex);
- 
-     return null; // All tokens are unavailable
+    } while (this.currentIndex !== startIndex);
+
+    return null; // All tokens are unavailable
   }
 
-   /**
-    * Switch to next token (called when current token fails) - matching Python version exactly
-    */
+  /**
+   * Switch to next token (called when current token fails) - matching Python version exactly
+   */
   switchToNext(): string | null {
-     if (this.tokens.length === 0) return null;
- 
-     // Mark current token as failed
-     const currentToken = this.tokens[this.currentIndex];
+    if (this.tokens.length === 0) return null;
+
+    // Mark current token as failed
+    const currentToken = this.tokens[this.currentIndex];
     currentToken.failureCount++;
     if (currentToken.failureCount >= 3) {
-       currentToken.isValid = false;
-        debugLog("Token marked as invalid: %s", currentToken.token.substring(0, 20));
-     }
- 
-     // Switch to next
-     this.currentIndex = (this.currentIndex + 1) % this.tokens.length;
+      currentToken.isValid = false;
+      debugLog("Token marked as invalid: %s", currentToken.token.substring(0, 20));
+    }
+
+    // Switch to next
+    this.currentIndex = (this.currentIndex + 1) % this.tokens.length;
     const nextToken = this.tokens[this.currentIndex];
 
     if (nextToken && nextToken.isValid && !nextToken.isAnonymous) {
-       debugLog("Switch to next token: %s", nextToken.token.substring(0, 20));
+      debugLog("Switch to next token: %s", nextToken.token.substring(0, 20));
       nextToken.lastUsed = Date.now();
-       return nextToken.token;
-     }
- 
-     return null; // All configured tokens are unavailable
+      return nextToken.token;
+    }
+
+    return null; // All configured tokens are unavailable
   }
 
-   /**
-    * Reset token status (after successful call) - matching Python version exactly
-    */
+  /**
+   * Reset token status (after successful call) - matching Python version exactly
+   */
   markSuccess(token: string): void {
-    const tokenInfo = this.tokens.find(t => t.token === token);
+    const tokenInfo = this.tokens.find((t) => t.token === token);
     if (tokenInfo) {
       tokenInfo.failureCount = 0;
       tokenInfo.isValid = true;
@@ -805,21 +625,21 @@ class TokenPool {
     }
   }
 
-   /**
-    * Get anonymous token (matching Python version exactly)
-    */
+  /**
+   * Get anonymous token (matching Python version exactly)
+   */
   private async getAnonymousToken(): Promise<string> {
-     const now = Date.now();
- 
-     // Check if cache is valid
-     if (this.anonymousToken && this.anonymousTokenExpiry > now) {
+    const now = Date.now();
+
+    // Check if cache is valid
+    if (this.anonymousToken && this.anonymousTokenExpiry > now) {
       return this.anonymousToken;
     }
 
     try {
-       this.anonymousToken = await getAnonymousToken();
-       this.anonymousTokenExpiry = now + (60 * 60 * 1000); // 1 hour validity period
-        debugLog("Anonymous token obtained and cached");
+      this.anonymousToken = await getAnonymousToken();
+      this.anonymousTokenExpiry = now + (60 * 60 * 1000); // 1 hour validity period
+      debugLog("Anonymous token obtained and cached");
       return this.anonymousToken;
     } catch (error) {
       debugLog("Failed to obtain anonymous token: %v", error);
@@ -827,40 +647,40 @@ class TokenPool {
     }
   }
 
-   /**
-    * Clear anonymous token cache
-    */
+  /**
+   * Clear anonymous token cache
+   */
   clearAnonymousTokenCache(): void {
     this.anonymousToken = null;
     this.anonymousTokenExpiry = 0;
-     debugLog("Anonymous token cache cleared");
+    debugLog("Anonymous token cache cleared");
   }
 
-   /**
-    * Get token pool size
-    */
+  /**
+   * Get token pool size
+   */
   getPoolSize(): number {
     return this.tokens.length;
   }
 
-   /**
-    * Check if it is an anonymous token
-    */
+  /**
+   * Check if it is an anonymous token
+   */
   isAnonymousToken(token: string): boolean {
     return this.anonymousToken === token;
-   }
- }
- 
- // Global token pool instance
- const tokenPool = new TokenPool();
+  }
+}
+
+// Global token pool instance
+const tokenPool = new TokenPool();
 
 /**
-  * Image Processing Tool Class
-  */
+ * Image Processing Tool Class
+ */
 class ImageProcessor {
-   /**
-    * Detect if message contains image content
-    */
+  /**
+   * Detect if message contains image content
+   */
   static hasImageContent(messages: Message[]): boolean {
     for (const msg of messages) {
       if (msg.role === "user") {
@@ -877,21 +697,21 @@ class ImageProcessor {
     return false;
   }
 
-   /**
-    * Upload image to Z.AI server
-    */
+  /**
+   * Upload image to Z.AI server
+   */
   static async uploadImage(imageUrl: string, token: string, chatId: string = ""): Promise<UploadedFile | null> {
     try {
-        debugLog("Start uploading image: %s", imageUrl.substring(0, 50) + "...");
+      debugLog("Start uploading image: %s", imageUrl.substring(0, 50) + "...");
 
-       // Process base64 image data
-       let imageData: Uint8Array;
+      // Process base64 image data
+      let imageData: Uint8Array;
       let filename: string;
       let mimeType: string;
 
-       if (imageUrl.startsWith("data:image/")) {
-         // Parse base64 image
-         const matches = imageUrl.match(/^data:image\/(\w+);base64,(.+)$/);
+      if (imageUrl.startsWith("data:image/")) {
+        // Parse base64 image
+        const matches = imageUrl.match(/^data:image\/(\w+);base64,(.+)$/);
         if (!matches) {
           throw new Error("Invalid base64 image format");
         }
@@ -899,10 +719,10 @@ class ImageProcessor {
         mimeType = `image/${matches[1]}`;
         filename = `image.${matches[1]}`;
         const base64Data = matches[2];
-        imageData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-       } else if (imageUrl.startsWith("http")) {
-         // Download remote image
-         const response = await fetch(imageUrl);
+        imageData = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+      } else if (imageUrl.startsWith("http")) {
+        // Download remote image
+        const response = await fetch(imageUrl);
         if (!response.ok) {
           throw new Error(`Failed to download image: ${response.statusText}`);
         }
@@ -916,71 +736,77 @@ class ImageProcessor {
         mimeType = contentType;
       } else {
         throw new Error("Unsupported image URL format");
-       }
+      }
 
-       // Create FormData
-       const formData = new FormData();
-      const arrayBuffer = imageData.buffer.slice(imageData.byteOffset, imageData.byteOffset + imageData.byteLength) as ArrayBuffer;
+      // Create FormData
+      const formData = new FormData();
+      const arrayBuffer = imageData.buffer.slice(
+        imageData.byteOffset,
+        imageData.byteOffset + imageData.byteLength,
+      ) as ArrayBuffer;
       const blob = new Blob([arrayBuffer], { type: mimeType });
-       formData.append("file", blob, filename);
+      formData.append("file", blob, filename);
 
-       // Upload to Z.AI (matching Python version headers exactly)
-       const uploadResponse = await fetch("https://chat.z.ai/api/v1/files/", {
-         method: "POST",
-         headers: {
-           "Accept": "*/*",
-           "Accept-Language": `${DEFAULT_LANGUAGE},en;q=0.9`,
-           "Authorization": `Bearer ${token}`,
-           "Cache-Control": "no-cache",
-           "Connection": "keep-alive",
-           "Content-Type": "multipart/form-data",
-           "DNT": "1",
-           "Origin": ORIGIN_BASE,
-           "Pragma": "no-cache",
-           "Referer": chatId ? `${ORIGIN_BASE}/c/${chatId}` : `${ORIGIN_BASE}/`,
-           "Sec-Ch-Ua": '"Microsoft Edge";v="141", "Not?A_Brand";v="8", "Chromium";v="141"',
-           "Sec-Ch-Ua-Mobile": "?0",
-           "Sec-Ch-Ua-Platform": '"Windows"',
-           "Sec-Fetch-Dest": "empty",
-           "Sec-Fetch-Mode": "cors",
-           "Sec-Fetch-Site": "same-origin",
-           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0",
-           "X-Fe-Version": X_FE_VERSION,
-         },
-         body: formData,
-       });
+      // Upload to Z.AI (matching Python version headers exactly)
+      const uploadResponse = await fetch("https://chat.z.ai/api/v1/files/", {
+        method: "POST",
+        headers: {
+          "Accept": "*/*",
+          "Accept-Language": `${DEFAULT_LANGUAGE},en;q=0.9`,
+          "Authorization": `Bearer ${token}`,
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
+          "Content-Type": "multipart/form-data",
+          "DNT": "1",
+          "Origin": ORIGIN_BASE,
+          "Pragma": "no-cache",
+          "Referer": chatId ? `${ORIGIN_BASE}/c/${chatId}` : `${ORIGIN_BASE}/`,
+          "Sec-Ch-Ua": '"Microsoft Edge";v="141", "Not?A_Brand";v="8", "Chromium";v="141"',
+          "Sec-Ch-Ua-Mobile": "?0",
+          "Sec-Ch-Ua-Platform": '"Windows"',
+          "Sec-Fetch-Dest": "empty",
+          "Sec-Fetch-Mode": "cors",
+          "Sec-Fetch-Site": "same-origin",
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0",
+          "X-Fe-Version": X_FE_VERSION,
+        },
+        body: formData,
+      });
 
       if (!uploadResponse.ok) {
         throw new Error(`Upload failed: ${uploadResponse.statusText}`);
       }
 
       const uploadResult = await uploadResponse.json() as { id: string; filename?: string; url: string };
-       debugLog("Image upload successful: %s", uploadResult.id);
+      debugLog("Image upload successful: %s", uploadResult.id);
 
       // Return file structure consistent with Python version exactly
-       const _currentTimestamp = Math.floor(Date.now() / 1000);
-       return {
-         id: uploadResult.id,
-         filename: uploadResult.filename || filename,
-         size: imageData.length,
-         type: mimeType,
-         url: uploadResult.url || `/api/v1/files/${uploadResult.id}/content`
-       };
+      const _currentTimestamp = Math.floor(Date.now() / 1000);
+      return {
+        id: uploadResult.id,
+        filename: uploadResult.filename || filename,
+        size: imageData.length,
+        type: mimeType,
+        url: uploadResult.url || `/api/v1/files/${uploadResult.id}/content`,
+      };
     } catch (error) {
-       debugLog("Image upload failed: %v", error);
+      debugLog("Image upload failed: %v", error);
       return null;
     }
   }
 
-   /**
-    * Process image content in message, return processed message and uploaded file list
-    */
+  /**
+   * Process image content in message, return processed message and uploaded file list
+   */
   static async processImages(
     messages: Message[],
     token: string,
     isVisionModel: boolean = false,
-    chatId: string = ""
-  ): Promise<{ processedMessages: Message[], uploadedFiles: UploadedFile[], uploadedFilesMap: Map<string, UploadedFile> }> {
+    chatId: string = "",
+  ): Promise<
+    { processedMessages: Message[]; uploadedFiles: UploadedFile[]; uploadedFilesMap: Map<string, UploadedFile> }
+  > {
     const processedMessages: Message[] = [];
     const uploadedFiles: UploadedFile[] = [];
     const uploadedFilesMap = new Map<string, UploadedFile>();
@@ -998,40 +824,40 @@ class ImageProcessor {
 
         for (const part of msg.content) {
           if (part.type === "image_url" && part.image_url?.url) {
-             const imageUrl = part.image_url.url;
+            const imageUrl = part.image_url.url;
 
-             // Upload image with chatId for proper referer
-             const uploadedFile = await this.uploadImage(imageUrl, token, chatId);
-             if (uploadedFile) {
-               if (isVisionModel) {
-                 // GLM-4.5V: Keep in message, but convert URL format (matching Python version exactly)
-                 const newUrl = `${uploadedFile.id}_${uploadedFile.filename}`;
+            // Upload image with chatId for proper referer
+            const uploadedFile = await this.uploadImage(imageUrl, token, chatId);
+            if (uploadedFile) {
+              if (isVisionModel) {
+                // GLM-4.5V: Keep in message, but convert URL format (matching Python version exactly)
+                const newUrl = `${uploadedFile.id}_${uploadedFile.filename}`;
                 newContent.push({
                   type: "image_url",
-                  image_url: { url: newUrl }
+                  image_url: { url: newUrl },
                 });
                 uploadedFilesMap.set(imageUrl, uploadedFile);
-                  debugLog("GLM-4.5V image URL converted: %s -> %s", imageUrl.substring(0, 50), newUrl);
-               } else {
-                 // Non-vision model: Add to file list, remove from message (matching Python version exactly)
-                 uploadedFiles.push(uploadedFile);
-                 debugLog("Image added to file list: %s", uploadedFile.id);
+                debugLog("GLM-4.5V image URL converted: %s -> %s", imageUrl.substring(0, 50), newUrl);
+              } else {
+                // Non-vision model: Add to file list, remove from message (matching Python version exactly)
+                uploadedFiles.push(uploadedFile);
+                debugLog("Image added to file list: %s", uploadedFile.id);
               }
             } else {
               // Upload failed, add error message
               debugLog("⚠️ Image upload failed");
               newContent.push({
                 type: "text",
-                text: "[系统提示: 图片上传失败]"
+                text: "[系统提示: 图片上传失败]",
               });
             }
           } else if (part.type === "text") {
             newContent.push(part);
           }
-         }
+        }
 
-         // If only text content, convert to string format
-         if (newContent.length === 1 && newContent[0].type === "text") {
+        // If only text content, convert to string format
+        if (newContent.length === 1 && newContent[0].type === "text") {
           processedMsg.content = newContent[0].text || "";
         } else if (newContent.length > 0) {
           processedMsg.content = newContent;
@@ -1046,13 +872,13 @@ class ImageProcessor {
     return {
       processedMessages,
       uploadedFiles,
-      uploadedFilesMap
+      uploadedFilesMap,
     };
   }
 
-   /**
-    * Extract text content of the last user message
-    */
+  /**
+   * Extract text content of the last user message
+   */
   static extractLastUserContent(messages: Message[]): string {
     for (let i = messages.length - 1; i >= 0; i--) {
       const msg = messages[i];
@@ -1077,9 +903,9 @@ class ImageProcessor {
  * Supported model configuration
  */
 interface ModelConfig {
-  id: string;           // Model ID as exposed by API
-  name: string;         // Display name
-  upstreamId: string;   // Upstream Z.ai model ID
+  id: string; // Model ID as exposed by API
+  name: string; // Display name
+  upstreamId: string; // Upstream Z.ai model ID
   capabilities: {
     vision: boolean;
     mcp: boolean;
@@ -1092,100 +918,39 @@ interface ModelConfig {
   };
 }
 
-const SUPPORTED_MODELS: ModelConfig[] = [
-  {
-    id: "0727-360B-API",
-    name: "GLM-4.5",
-    upstreamId: "0727-360B-API",
-    capabilities: {
-      vision: false,
-      mcp: true,
-      thinking: true
-    },
-    defaultParams: {
-      top_p: 0.95,
-      temperature: 0.6,
-      max_tokens: 80000
-    }
-  },
-  {
-    id: "GLM-4-6-API-V1",
-    name: "GLM-4.6",
-    upstreamId: "GLM-4-6-API-V1",
-    capabilities: {
-      vision: false,
-      mcp: true,
-      thinking: true
-    },
-    defaultParams: {
-      top_p: 0.95,
-      temperature: 0.6,
-      max_tokens: 195000
-    }
-  },
-  {
-    id: "glm-4.5v",
-    name: "GLM-4.5V",
-    upstreamId: "glm-4.5v",
-    capabilities: {
-      vision: true,
-      mcp: false,
-      thinking: true
-    },
-    defaultParams: {
-      top_p: 0.6,
-      temperature: 0.8
-    }
-  }
-];
-
-// Default model
-const DEFAULT_MODEL = SUPPORTED_MODELS[0];
-
-// Get model configuration by ID
-function getModelConfig(modelId: string): ModelConfig {
-  // Normalize model ID to handle case differences from various clients
-  const normalizedModelId = normalizeModelId(modelId);
-  const found = SUPPORTED_MODELS.find(m => m.id === normalizedModelId);
-
-  if (!found) {
-    debugLog("⚠️ Model config not found: %s (normalized: %s). Using default: %s", 
-      modelId, normalizedModelId, DEFAULT_MODEL.name);
-  }
-
-  return found || DEFAULT_MODEL;
-}
+// SUPPORTED_MODELS and getModelConfig now imported from src/config/models.ts
+const getModelConfig = getModelConfigNew; // Alias for compatibility
 
 /**
  * Normalize model ID to handle different client naming formats
  */
-function normalizeModelId(modelId: string): string {
+function _normalizeModelId(modelId: string): string {
   const normalized = modelId.toLowerCase().trim();
- 
+
   const modelMappings: Record<string, string> = {
-    'glm-4.5v': 'glm-4.5v',
-    'glm4.5v': 'glm-4.5v',
-    'glm_4.5v': 'glm-4.5v',
-    'gpt-4-vision-preview': 'glm-4.5v',  // backward compatibility
-    '0727-360b-api': '0727-360B-API',
-    'glm-4.5': '0727-360B-API',
-    'glm4.5': '0727-360B-API',
-    'glm_4.5': '0727-360B-API',
-    'gpt-4': '0727-360B-API',  // backward compatibility
+    "glm-4.5v": "glm-4.5v",
+    "glm4.5v": "glm-4.5v",
+    "glm_4.5v": "glm-4.5v",
+    "gpt-4-vision-preview": "glm-4.5v", // backward compatibility
+    "0727-360b-api": "0727-360B-API",
+    "glm-4.5": "0727-360B-API",
+    "glm4.5": "0727-360B-API",
+    "glm_4.5": "0727-360B-API",
+    "gpt-4": "0727-360B-API", // backward compatibility
     // GLM-4.6 mappings (from example requests)
-    'glm-4.6': 'GLM-4-6-API-V1',
-    'glm4.6': 'GLM-4-6-API-V1',
-    'glm_4.6': 'GLM-4-6-API-V1',
-    'glm-4-6-api-v1': 'GLM-4-6-API-V1',
-    'glm-4-6': 'GLM-4-6-API-V1'
+    "glm-4.6": "GLM-4-6-API-V1",
+    "glm4.6": "GLM-4-6-API-V1",
+    "glm_4.6": "GLM-4-6-API-V1",
+    "glm-4-6-api-v1": "GLM-4-6-API-V1",
+    "glm-4-6": "GLM-4-6-API-V1",
   };
- 
+
   const mapped = modelMappings[normalized];
   if (mapped) {
     debugLog("🔄 Model ID mapping: %s → %s", modelId, mapped);
     return mapped;
   }
- 
+
   return normalized;
 }
 
@@ -1208,37 +973,37 @@ function processMessages(messages: Message[], modelConfig: ModelConfig): Message
         videos: 0,
         documents: 0,
         audios: 0,
-        others: 0
+        others: 0,
       };
 
       if (!modelConfig.capabilities.vision) {
         debugLog("Warning: Model %s does not support multimodal content but received it", modelConfig.name);
         // Keep only text blocks
         const textContent = message.content
-          .filter(block => block.type === 'text')
-          .map(block => block.text)
-          .join('\n');
+          .filter((block) => block.type === "text")
+          .map((block) => block.text)
+          .join("\n");
         processedMessage.content = textContent;
       } else {
         // GLM-4.5V supports full multimodal handling
         for (const block of message.content) {
           switch (block.type) {
-            case 'text':
+            case "text":
               if (block.text) {
                 mediaStats.text++;
                 debugLog("📝 Text block length: %d", block.text.length);
               }
               break;
 
-            case 'image_url':
+            case "image_url":
               if (block.image_url?.url) {
                 mediaStats.images++;
                 const url = block.image_url.url;
-                if (url.startsWith('data:image/')) {
+                if (url.startsWith("data:image/")) {
                   const mimeMatch = url.match(/data:image\/([^;]+)/);
-                  const format = mimeMatch ? mimeMatch[1] : 'unknown';
+                  const format = mimeMatch ? mimeMatch[1] : "unknown";
                   debugLog("🖼️ Image data: %s format, size: %d chars", format, url.length);
-                } else if (url.startsWith('http')) {
+                } else if (url.startsWith("http")) {
                   debugLog("🔗 Image URL: %s", url);
                 } else {
                   debugLog("⚠️ Unknown image format: %s", url.substring(0, 50));
@@ -1246,15 +1011,15 @@ function processMessages(messages: Message[], modelConfig: ModelConfig): Message
               }
               break;
 
-            case 'video_url':
+            case "video_url":
               if (block.video_url?.url) {
                 mediaStats.videos++;
                 const url = block.video_url.url;
-                if (url.startsWith('data:video/')) {
+                if (url.startsWith("data:video/")) {
                   const mimeMatch = url.match(/data:video\/([^;]+)/);
-                  const format = mimeMatch ? mimeMatch[1] : 'unknown';
+                  const format = mimeMatch ? mimeMatch[1] : "unknown";
                   debugLog("🎥 Video data: %s format, size: %d chars", format, url.length);
-                } else if (url.startsWith('http')) {
+                } else if (url.startsWith("http")) {
                   debugLog("🔗 Video URL: %s", url);
                 } else {
                   debugLog("⚠️ Unknown video format: %s", url.substring(0, 50));
@@ -1262,15 +1027,15 @@ function processMessages(messages: Message[], modelConfig: ModelConfig): Message
               }
               break;
 
-            case 'document_url':
+            case "document_url":
               if (block.document_url?.url) {
                 mediaStats.documents++;
                 const url = block.document_url.url;
-                if (url.startsWith('data:application/')) {
+                if (url.startsWith("data:application/")) {
                   const mimeMatch = url.match(/data:application\/([^;]+)/);
-                  const format = mimeMatch ? mimeMatch[1] : 'unknown';
+                  const format = mimeMatch ? mimeMatch[1] : "unknown";
                   debugLog("📄 Document data: %s format, size: %d chars", format, url.length);
-                } else if (url.startsWith('http')) {
+                } else if (url.startsWith("http")) {
                   debugLog("🔗 Document URL: %s", url);
                 } else {
                   debugLog("⚠️ Unknown document format: %s", url.substring(0, 50));
@@ -1278,15 +1043,15 @@ function processMessages(messages: Message[], modelConfig: ModelConfig): Message
               }
               break;
 
-            case 'audio_url':
+            case "audio_url":
               if (block.audio_url?.url) {
                 mediaStats.audios++;
                 const url = block.audio_url.url;
-                if (url.startsWith('data:audio/')) {
+                if (url.startsWith("data:audio/")) {
                   const mimeMatch = url.match(/data:audio\/([^;]+)/);
-                  const format = mimeMatch ? mimeMatch[1] : 'unknown';
+                  const format = mimeMatch ? mimeMatch[1] : "unknown";
                   debugLog("🎵 Audio data: %s format, size: %d chars", format, url.length);
-                } else if (url.startsWith('http')) {
+                } else if (url.startsWith("http")) {
                   debugLog("🔗 Audio URL: %s", url);
                 } else {
                   debugLog("⚠️ Unknown audio format: %s", url.substring(0, 50));
@@ -1302,11 +1067,17 @@ function processMessages(messages: Message[], modelConfig: ModelConfig): Message
 
         const totalMedia = mediaStats.images + mediaStats.videos + mediaStats.documents + mediaStats.audios;
         if (totalMedia > 0) {
-          debugLog("🎯 Multimodal stats: text(%d) images(%d) videos(%d) documents(%d) audio(%d)",
-            mediaStats.text, mediaStats.images, mediaStats.videos, mediaStats.documents, mediaStats.audios);
+          debugLog(
+            "🎯 Multimodal stats: text(%d) images(%d) videos(%d) documents(%d) audio(%d)",
+            mediaStats.text,
+            mediaStats.images,
+            mediaStats.videos,
+            mediaStats.documents,
+            mediaStats.audios,
+          );
         }
       }
-    } else if (typeof message.content === 'string') {
+    } else if (typeof message.content === "string") {
       debugLog("📝 Plain text message, length: %d", message.content.length);
     }
 
@@ -1314,18 +1085,18 @@ function processMessages(messages: Message[], modelConfig: ModelConfig): Message
   }
 
   return processedMessages;
- }
+}
 
- /**
-  * Global state
-  */
+/**
+ * Global state
+ */
 
 let stats: RequestStats = {
   totalRequests: 0,
   successfulRequests: 0,
   failedRequests: 0,
   lastRequestTime: new Date(),
-  averageResponseTime: 0
+  averageResponseTime: 0,
 };
 
 let liveRequests: LiveRequest[] = [];
@@ -1360,7 +1131,14 @@ function recordRequestStats(startTime: number, _path: string, status: number): v
   }
 }
 
-function addLiveRequest(method: string, path: string, status: number, duration: number, userAgent: string, model?: string): void {
+function addLiveRequest(
+  method: string,
+  path: string,
+  status: number,
+  duration: number,
+  userAgent: string,
+  model?: string,
+): void {
   const request: LiveRequest = {
     id: Date.now().toString(),
     timestamp: new Date(),
@@ -1369,7 +1147,7 @@ function addLiveRequest(method: string, path: string, status: number, duration: 
     status,
     duration,
     userAgent,
-    model
+    model,
   };
 
   liveRequests.push(request);
@@ -1386,14 +1164,14 @@ function getLiveRequestsData(): string {
       liveRequests = [];
     }
 
-    const requestData = liveRequests.map(req => ({
+    const requestData = liveRequests.map((req) => ({
       id: req.id || "",
       timestamp: req.timestamp || new Date(),
       method: req.method || "",
       path: req.path || "",
       status: req.status || 0,
       duration: req.duration || 0,
-      user_agent: req.userAgent || ""
+      user_agent: req.userAgent || "",
     }));
 
     return JSON.stringify(requestData);
@@ -1412,7 +1190,7 @@ function getStatsData(): string {
         successfulRequests: 0,
         failedRequests: 0,
         lastRequestTime: new Date(),
-        averageResponseTime: 0
+        averageResponseTime: 0,
       };
     }
 
@@ -1420,7 +1198,7 @@ function getStatsData(): string {
       totalRequests: stats.totalRequests || 0,
       successfulRequests: stats.successfulRequests || 0,
       failedRequests: stats.failedRequests || 0,
-      averageResponseTime: stats.averageResponseTime || 0
+      averageResponseTime: stats.averageResponseTime || 0,
     };
 
     return JSON.stringify(statsData);
@@ -1430,7 +1208,7 @@ function getStatsData(): string {
       totalRequests: 0,
       successfulRequests: 0,
       failedRequests: 0,
-      averageResponseTime: 0
+      averageResponseTime: 0,
     });
   }
 }
@@ -1466,77 +1244,77 @@ function validateApiKey(authHeader: string | null): boolean {
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return false;
   }
- 
+
   const apiKey = authHeader.substring(7);
   if (apiKey === DEFAULT_KEY) return true;
   if (ZAI_TOKEN && apiKey === ZAI_TOKEN) return true;
   // Accept typical JWTs (three parts separated by '.') or long opaque tokens seen in captures
-  if (apiKey.split('.').length === 3) return true;
+  if (apiKey.split(".").length === 3) return true;
   if (apiKey.length > 30) return true;
   return false;
 }
 
 async function getAnonymousToken(): Promise<string> {
-   // Retry logic matching Python version exactly
-   const maxRetries = 3;
-   let retryCount = 0;
+  // Retry logic matching Python version exactly
+  const maxRetries = 3;
+  let retryCount = 0;
 
-   while (retryCount < maxRetries) {
-     try {
-       debugLog("Attempting to get anonymous token (attempt %d/%d)", retryCount + 1, maxRetries);
+  while (retryCount < maxRetries) {
+    try {
+      debugLog("Attempting to get anonymous token (attempt %d/%d)", retryCount + 1, maxRetries);
 
-       // Generate dynamic headers for each request (matching Python version exactly)
-       const dynamicHeaders = await SmartHeaderGenerator.generateHeaders();
+      // Generate dynamic headers for each request (matching Python version exactly)
+      const dynamicHeaders = await SmartHeaderGenerator.generateHeaders();
 
-       const response = await fetch(`${ORIGIN_BASE}/api/v1/auths/`, {
-         method: "GET",
-         headers: {
-           ...dynamicHeaders,
-           "Accept": "*/*",
-           "Accept-Language": `${DEFAULT_LANGUAGE},en;q=0.9`,
-         }
-       });
+      const response = await fetch(`${ORIGIN_BASE}/api/v1/auths/`, {
+        method: "GET",
+        headers: {
+          ...dynamicHeaders,
+          "Accept": "*/*",
+          "Accept-Language": `${DEFAULT_LANGUAGE},en;q=0.9`,
+        },
+      });
 
-       debugLog("Anonymous token response status: %d", response.status);
+      debugLog("Anonymous token response status: %d", response.status);
 
-       if (response.status === 200) {
-         const data = await response.json() as { token: string; email?: string; role?: string };
-         if (data.token) {
-           // Check if it's a guest token (matching Python version exactly)
-           const email = data.email || "";
-           const role = data.role || "";
-           const isGuest = email.includes("@guest.com") || email.includes("Guest-") || role === "guest";
-           const tokenType = isGuest ? "guest" : "authenticated";
-           debugLog("✅ Anonymous token obtained successfully (%s): %s...", tokenType, data.token.substring(0, 20));
-           return data.token;
-         } else {
-           debugLog("⚠️ Response missing token field: %o", data);
-         }
-       } else if (response.status === 405) {
-         debugLog("🚫 Request blocked by WAF (status 405), may be due to abnormal headers");
-         break; // Don't retry on WAF blocks (matching Python version)
-       } else {
-         debugLog("HTTP request failed with status: %d", response.status);
-         try {
-           const errorData = await response.json();
-           debugLog("Error response: %o", errorData);
-         } catch {
-           debugLog("Error response text: %s", await response.text());
-         }
-       }
-     } catch (error) {
-       debugLog("Request failed (attempt %d): %v", retryCount + 1, error);
-     }
+      if (response.status === 200) {
+        const data = await response.json() as { token: string; email?: string; role?: string };
+        if (data.token) {
+          // Check if it's a guest token (matching Python version exactly)
+          const email = data.email || "";
+          const role = data.role || "";
+          const isGuest = email.includes("@guest.com") || email.includes("Guest-") || role === "guest";
+          const tokenType = isGuest ? "guest" : "authenticated";
+          debugLog("✅ Anonymous token obtained successfully (%s): %s...", tokenType, data.token.substring(0, 20));
+          return data.token;
+        } else {
+          debugLog("⚠️ Response missing token field: %o", data);
+        }
+      } else if (response.status === 405) {
+        debugLog("🚫 Request blocked by WAF (status 405), may be due to abnormal headers");
+        break; // Don't retry on WAF blocks (matching Python version)
+      } else {
+        debugLog("HTTP request failed with status: %d", response.status);
+        try {
+          const errorData = await response.json();
+          debugLog("Error response: %o", errorData);
+        } catch {
+          debugLog("Error response text: %s", await response.text());
+        }
+      }
+    } catch (error) {
+      debugLog("Request failed (attempt %d): %v", retryCount + 1, error);
+    }
 
-     retryCount++;
-     if (retryCount < maxRetries) {
-       debugLog("Waiting 2 seconds before retry...");
-       await new Promise(resolve => setTimeout(resolve, 2000));
-     }
-   }
+    retryCount++;
+    if (retryCount < maxRetries) {
+      debugLog("Waiting 2 seconds before retry...");
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+  }
 
-   throw new Error("Failed to obtain anonymous token after 3 attempts");
- }
+  throw new Error("Failed to obtain anonymous token after 3 attempts");
+}
 
 /**
  * Generate Z.ai API request signature (Updated signature algorithm matching Python version)
@@ -1545,134 +1323,138 @@ async function getAnonymousToken(): Promise<string> {
  * @param timestamp Timestamp (milliseconds)
  * @returns { signature: string, timestamp: string }
  */
-async function generateSignature(e: string, t: string, timestamp: number): Promise<{ signature: string, timestamp: string }> {
-   const timestampStr = String(timestamp);
+async function generateSignature(
+  e: string,
+  t: string,
+  timestamp: number,
+): Promise<{ signature: string; timestamp: string }> {
+  const timestampStr = String(timestamp);
 
-   // 1. Base64 encode the message content (matching Python implementation exactly)
-   const bodyEncoded = new TextEncoder().encode(t);
-   const bodyBase64 = btoa(String.fromCharCode(...bodyEncoded));
+  // 1. Base64 encode the message content (matching Python implementation exactly)
+  const bodyEncoded = new TextEncoder().encode(t);
+  const bodyBase64 = btoa(String.fromCharCode(...bodyEncoded));
 
-   // 2. Construct the string to sign (matching Python implementation exactly)
-   const stringToSign = `${e}|${bodyBase64}|${timestampStr}`;
+  // 2. Construct the string to sign (matching Python implementation exactly)
+  const stringToSign = `${e}|${bodyBase64}|${timestampStr}`;
 
-   // 3. Calculate 5-minute time window (matching Python implementation exactly)
-   const timeWindow = Math.floor(timestamp / (5 * 60 * 1000));
+  // 3. Calculate 5-minute time window (matching Python implementation exactly)
+  const timeWindow = Math.floor(timestamp / (5 * 60 * 1000));
 
-   // 4. Get signing key (matching Python implementation exactly)
-   const secretEnv = Deno.env.get("ZAI_SIGNING_SECRET");
-   let rootKey: Uint8Array;
+  // 4. Get signing key (matching Python implementation exactly)
+  const secretEnv = Deno.env.get("ZAI_SIGNING_SECRET");
+  let rootKey: Uint8Array;
 
-   if (secretEnv) {
-     // Read key from environment variable
-     if (/^[0-9a-fA-F]+$/.test(secretEnv) && secretEnv.length % 2 === 0) {
-       // HEX format
-       rootKey = new Uint8Array(secretEnv.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
-     } else {
-       // UTF-8 format
-       rootKey = new TextEncoder().encode(secretEnv);
-     }
-     debugLog("Using environment variable key: %s", secretEnv.substring(0, 10) + "...");
-   } else {
-     // Use Python version default key exactly
-     const defaultKey = "key-@@@@)))()((9))-xxxx&&&%%%%%";
-     rootKey = new TextEncoder().encode(defaultKey);
-     debugLog("Using Python version default key");
-   }
+  if (secretEnv) {
+    // Read key from environment variable
+    if (/^[0-9a-fA-F]+$/.test(secretEnv) && secretEnv.length % 2 === 0) {
+      // HEX format
+      rootKey = new Uint8Array(secretEnv.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16)));
+    } else {
+      // UTF-8 format
+      rootKey = new TextEncoder().encode(secretEnv);
+    }
+    debugLog("Using environment variable key: %s", secretEnv.substring(0, 10) + "...");
+  } else {
+    // Use Python version default key exactly
+    const defaultKey = "key-@@@@)))()((9))-xxxx&&&%%%%%";
+    rootKey = new TextEncoder().encode(defaultKey);
+    debugLog("Using Python version default key");
+  }
 
-   // 5. First layer HMAC, generate intermediate key (matching Python implementation exactly)
-   const firstHmacKey = await crypto.subtle.importKey(
-     "raw",
-     new Uint8Array(rootKey),
-     { name: "HMAC", hash: "SHA-256" },
-     false,
-     ["sign"]
-   );
-   const firstSignatureBuffer = await crypto.subtle.sign(
-     "HMAC",
-     firstHmacKey,
-     new TextEncoder().encode(String(timeWindow))
-   );
-   const intermediateKey = Array.from(new Uint8Array(firstSignatureBuffer))
-     .map((b) => b.toString(16).padStart(2, "0"))
-     .join("");
+  // 5. First layer HMAC, generate intermediate key (matching Python implementation exactly)
+  const firstHmacKey = await crypto.subtle.importKey(
+    "raw",
+    new Uint8Array(rootKey),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const firstSignatureBuffer = await crypto.subtle.sign(
+    "HMAC",
+    firstHmacKey,
+    new TextEncoder().encode(String(timeWindow)),
+  );
+  const intermediateKey = Array.from(new Uint8Array(firstSignatureBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 
-   // 6. Second layer HMAC, generate final signature (matching Python implementation exactly)
-   const secondKeyMaterial = new TextEncoder().encode(intermediateKey);
-   const secondHmacKey = await crypto.subtle.importKey(
-     "raw",
-     secondKeyMaterial,
-     { name: "HMAC", hash: "SHA-256" },
-     false,
-     ["sign"]
-   );
-   const finalSignatureBuffer = await crypto.subtle.sign(
-     "HMAC",
-     secondHmacKey,
-     new TextEncoder().encode(stringToSign)
-   );
-   const signature = Array.from(new Uint8Array(finalSignatureBuffer))
-     .map((b) => b.toString(16).padStart(2, "0"))
-     .join("");
+  // 6. Second layer HMAC, generate final signature (matching Python implementation exactly)
+  const secondKeyMaterial = new TextEncoder().encode(intermediateKey);
+  const secondHmacKey = await crypto.subtle.importKey(
+    "raw",
+    secondKeyMaterial,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const finalSignatureBuffer = await crypto.subtle.sign(
+    "HMAC",
+    secondHmacKey,
+    new TextEncoder().encode(stringToSign),
+  );
+  const signature = Array.from(new Uint8Array(finalSignatureBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 
-   debugLog("Python version signature generated successfully: %s", signature);
-   return {
-     signature,
-     timestamp: timestampStr,
-   };
- }
+  debugLog("Python version signature generated successfully: %s", signature);
+  return {
+    signature,
+    timestamp: timestampStr,
+  };
+}
 
 async function callUpstreamWithHeaders(
   upstreamReq: UpstreamRequest,
   refererChatID: string,
-  authToken: string
+  authToken: string,
 ): Promise<Response> {
   try {
-      debugLog("Call upstream API (Python version): %s", UPSTREAM_URL);
+    debugLog("Call upstream API (Python version): %s", UPSTREAM_URL);
 
-     // 1. Decode JWT to get user_id (multi-field support, consistent with Python version)
-     let userId = "guest";
-     try {
-       const tokenParts = authToken.split(".");
-       if (tokenParts.length === 3) {
-         const payload = JSON.parse(
-           new TextDecoder().decode(decodeBase64(tokenParts[1]))
-         );
+    // 1. Decode JWT to get user_id (multi-field support, consistent with Python version)
+    let userId = "guest";
+    try {
+      const tokenParts = authToken.split(".");
+      if (tokenParts.length === 3) {
+        const payload = JSON.parse(
+          new TextDecoder().decode(decodeBase64(tokenParts[1])),
+        );
 
-         // Try multiple possible user_id fields (consistent with Python version)
-         for (const key of ["id", "user_id", "uid", "sub"]) {
-           const val = payload[key];
-           if (typeof val === "string" || typeof val === "number") {
-             const strVal = String(val);
-             if (strVal.length > 0) {
-               userId = strVal;
-               debugLog("Parsed user_id from JWT: %s (field: %s)", userId, key);
-               break;
-             }
-           }
-         }
-       }
-     } catch (e) {
-       debugLog("Failed to parse JWT: %v", e);
-     }
+        // Try multiple possible user_id fields (consistent with Python version)
+        for (const key of ["id", "user_id", "uid", "sub"]) {
+          const val = payload[key];
+          if (typeof val === "string" || typeof val === "number") {
+            const strVal = String(val);
+            if (strVal.length > 0) {
+              userId = strVal;
+              debugLog("Parsed user_id from JWT: %s (field: %s)", userId, key);
+              break;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugLog("Failed to parse JWT: %v", e);
+    }
 
-     // 2. Prepare parameters needed for signature (matching Python version)
-     const timestamp = Date.now();
-     const requestId = crypto.randomUUID();
-     const lastMessageContent = ImageProcessor.extractLastUserContent(upstreamReq.messages);
+    // 2. Prepare parameters needed for signature (matching Python version)
+    const timestamp = Date.now();
+    const requestId = crypto.randomUUID();
+    const lastMessageContent = ImageProcessor.extractLastUserContent(upstreamReq.messages);
 
-     if (!lastMessageContent) {
-        throw new Error("Cannot get user message content for signature");
-     }
+    if (!lastMessageContent) {
+      throw new Error("Cannot get user message content for signature");
+    }
 
-     const e = `requestId,${requestId},timestamp,${timestamp},user_id,${userId}`;
+    const e = `requestId,${requestId},timestamp,${timestamp},user_id,${userId}`;
 
-     // 3. Generate signature (matching Python version)
-     const { signature } = await generateSignature(
+    // 3. Generate signature (matching Python version)
+    const { signature } = await generateSignature(
       e,
       lastMessageContent,
-      timestamp
+      timestamp,
     );
-     debugLog("Generate Python version signature: %s", signature);
+    debugLog("Generate Python version signature: %s", signature);
 
     // 4. Build request body (matching Python version structure)
     const reqBody = JSON.stringify(upstreamReq);
@@ -1699,7 +1481,7 @@ async function callUpstreamWithHeaders(
       "referrer": "",
       "title": "Z.ai Chat - Free AI powered by GLM-4.6 & GLM-4.5",
       "timezone_offset": "-480",
-      "local_time": new Date(timestamp).toISOString().replace('T', ' ').substring(0, 23) + 'Z',
+      "local_time": new Date(timestamp).toISOString().replace("T", " ").substring(0, 23) + "Z",
       "utc_time": new Date(timestamp).toUTCString(),
       "is_mobile": "false",
       "is_touch": "false",
@@ -1736,24 +1518,24 @@ async function callUpstreamWithHeaders(
     tokenPool.markSuccess(authToken);
 
     return response;
-   } catch (error) {
-      debugLog("Failed to call upstream: %v", error);
+  } catch (error) {
+    debugLog("Failed to call upstream: %v", error);
 
-     // Try switching token on failure
-     try {
+    // Try switching token on failure
+    try {
       const newToken = tokenPool.switchToNext();
-       if (newToken) {
-          debugLog("Switch to new token retry: %s", newToken.substring(0, 20));
-         // Retry recursively once, avoid infinite loop
-         return callUpstreamWithHeaders(upstreamReq, refererChatID, newToken);
+      if (newToken) {
+        debugLog("Switch to new token retry: %s", newToken.substring(0, 20));
+        // Retry recursively once, avoid infinite loop
+        return callUpstreamWithHeaders(upstreamReq, refererChatID, newToken);
       }
     } catch (retryError) {
-       debugLog("Token switch retry failed: %v", retryError);
+      debugLog("Token switch retry failed: %v", retryError);
     }
 
     throw error;
-   }
- }
+  }
+}
 
 /**
  * Transforms thinking content based on the specified mode.
@@ -1762,8 +1544,15 @@ async function callUpstreamWithHeaders(
  * @param {"strip" | "thinking" | "think" | "raw" | "separate"} [mode=THINK_TAGS_MODE] - The transformation mode.
  * @returns {string | { reasoning: string; content: string }} The transformed content.
  */
-export function transformThinking(content: string, mode: "strip" | "thinking" | "think" | "raw" | "separate" = THINK_TAGS_MODE as "strip" | "thinking" | "think" | "raw" | "separate"): string | { reasoning: string; content: string } {
-
+export function transformThinking(
+  content: string,
+  mode: "strip" | "thinking" | "think" | "raw" | "separate" = THINK_TAGS_MODE as
+    | "strip"
+    | "thinking"
+    | "think"
+    | "raw"
+    | "separate",
+): string | { reasoning: string; content: string } {
   // Raw mode: return as-is
   if (mode === "raw") {
     return content;
@@ -1814,7 +1603,11 @@ export function transformThinking(content: string, mode: "strip" | "thinking" | 
 
       reasoning = reasoning.trim();
 
-      debugLog("Separate mode - extracted reasoning length: %d, content length: %d", reasoning.length, finalContent.length);
+      debugLog(
+        "Separate mode - extracted reasoning length: %d, content length: %d",
+        reasoning.length,
+        finalContent.length,
+      );
       debugLog("Separate mode - content preview: %s", finalContent.substring(0, 50));
     } else {
       // No details tags, treat all as final content
@@ -1899,7 +1692,12 @@ async function processUpstreamStream(
   writer: WritableStreamDefaultWriter<Uint8Array>,
   encoder: TextEncoder,
   modelName: string,
-  thinkTagsMode: "strip" | "thinking" | "think" | "raw" | "separate" = THINK_TAGS_MODE as "strip" | "thinking" | "think" | "raw" | "separate"
+  thinkTagsMode: "strip" | "thinking" | "think" | "raw" | "separate" = THINK_TAGS_MODE as
+    | "strip"
+    | "thinking"
+    | "think"
+    | "raw"
+    | "separate",
 ): Promise<Usage | null> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
@@ -1920,7 +1718,7 @@ async function processUpstreamStream(
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
+      const lines = buffer.split("\n");
       buffer = lines.pop() || ""; // keep last partial line
 
       for (const line of lines) {
@@ -1934,10 +1732,12 @@ async function processUpstreamStream(
             const upstreamData = JSON.parse(dataStr) as UpstreamData;
 
             // Error detection
-            if (upstreamData.error || upstreamData.data.error ||
-                (upstreamData.data.inner && upstreamData.data.inner.error)) {
+            if (
+              upstreamData.error || upstreamData.data.error ||
+              (upstreamData.data.inner && upstreamData.data.inner.error)
+            ) {
               const errObj = upstreamData.error || upstreamData.data.error ||
-                           (upstreamData.data.inner && upstreamData.data.inner.error);
+                (upstreamData.data.inner && upstreamData.data.inner.error);
               debugLog("Upstream error: code=%d, detail=%s", errObj?.code, errObj?.detail);
 
               const errorDetail = (errObj?.detail || "").toLowerCase();
@@ -1962,9 +1762,9 @@ async function processUpstreamStream(
                   {
                     index: 0,
                     delta: {},
-                    finish_reason: "stop"
-                  }
-                ]
+                    finish_reason: "stop",
+                  },
+                ],
               };
 
               await writer.write(encoder.encode(`data: ${JSON.stringify(endChunk)}\n\n`));
@@ -1972,21 +1772,31 @@ async function processUpstreamStream(
               return finalUsage;
             }
 
-            debugLog("Parsed upstream - type: %s, phase: %s, content length: %d, done: %v",
-              upstreamData.type, upstreamData.data.phase,
+            debugLog(
+              "Parsed upstream - type: %s, phase: %s, content length: %d, done: %v",
+              upstreamData.type,
+              upstreamData.data.phase,
               upstreamData.data.delta_content ? upstreamData.data.delta_content.length : 0,
-              upstreamData.data.done);
+              upstreamData.data.done,
+            );
 
             // Capture usage information if present
             if (upstreamData.data.usage) {
               finalUsage = upstreamData.data.usage;
-              debugLog("Captured usage data: prompt=%d, completion=%d, total=%d",
-                finalUsage.prompt_tokens, finalUsage.completion_tokens, finalUsage.total_tokens);
+              debugLog(
+                "Captured usage data: prompt=%d, completion=%d, total=%d",
+                finalUsage.prompt_tokens,
+                finalUsage.completion_tokens,
+                finalUsage.total_tokens,
+              );
             }
 
             // Handle edit_content (complete thinking block sent when phase changes)
             if (upstreamData.data.edit_content && !thinkingSent) {
-              debugLog("Received edit_content with complete thinking block, length: %d", upstreamData.data.edit_content.length);
+              debugLog(
+                "Received edit_content with complete thinking block, length: %d",
+                upstreamData.data.edit_content.length,
+              );
               debugLog("Current mode: %s, thinkingSent: %s", THINK_TAGS_MODE, thinkingSent);
 
               if (thinkTagsMode === "separate") {
@@ -2003,9 +1813,9 @@ async function processUpstreamStream(
                     choices: [
                       {
                         index: 0,
-                        delta: { reasoning_content: transformed.reasoning }
-                      }
-                    ]
+                        delta: { reasoning_content: transformed.reasoning },
+                      },
+                    ],
                   };
 
                   await writer.write(encoder.encode(`data: ${JSON.stringify(reasoningChunk)}\n\n`));
@@ -2044,9 +1854,9 @@ async function processUpstreamStream(
                         choices: [
                           {
                             index: 0,
-                            delta: { reasoning_content: transformed.reasoning }
-                          }
-                        ]
+                            delta: { reasoning_content: transformed.reasoning },
+                          },
+                        ],
                       };
 
                       await writer.write(encoder.encode(`data: ${JSON.stringify(reasoningChunk)}\n\n`));
@@ -2065,9 +1875,9 @@ async function processUpstreamStream(
                     choices: [
                       {
                         index: 0,
-                        delta: { content: rawContent }
-                      }
-                    ]
+                        delta: { content: rawContent },
+                      },
+                    ],
                   };
 
                   await writer.write(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
@@ -2105,9 +1915,9 @@ async function processUpstreamStream(
                         choices: [
                           {
                             index: 0,
-                            delta: { content: openingTag }
-                          }
-                        ]
+                            delta: { content: openingTag },
+                          },
+                        ],
                       };
                       await writer.write(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
                       thinkingTagOpened = true;
@@ -2137,9 +1947,9 @@ async function processUpstreamStream(
                       choices: [
                         {
                           index: 0,
-                          delta: { content: processedChunk }
-                        }
-                      ]
+                          delta: { content: processedChunk },
+                        },
+                      ],
                     };
 
                     await writer.write(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
@@ -2168,9 +1978,9 @@ async function processUpstreamStream(
                         choices: [
                           {
                             index: 0,
-                            delta: { content: closingTag }
-                          }
-                        ]
+                            delta: { content: closingTag },
+                          },
+                        ],
                       };
                       await writer.write(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
                     }
@@ -2190,9 +2000,9 @@ async function processUpstreamStream(
                     choices: [
                       {
                         index: 0,
-                        delta: { content: rawContent }
-                      }
-                    ]
+                        delta: { content: rawContent },
+                      },
+                    ],
                   };
 
                   await writer.write(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
@@ -2214,10 +2024,10 @@ async function processUpstreamStream(
                   {
                     index: 0,
                     delta: {},
-                    finish_reason: "stop"
-                  }
+                    finish_reason: "stop",
+                  },
                 ],
-                usage: finalUsage || undefined
+                usage: finalUsage || undefined,
               };
 
               await writer.write(encoder.encode(`data: ${JSON.stringify(endChunk)}\n\n`));
@@ -2233,15 +2043,20 @@ async function processUpstreamStream(
   } finally {
     writer.close();
   }
-  
+
   return finalUsage;
 }
 
 // Collect full response for non-streaming mode
 async function collectFullResponse(
   body: ReadableStream<Uint8Array>,
-  thinkTagsMode: "strip" | "thinking" | "think" | "raw" | "separate" = THINK_TAGS_MODE as "strip" | "thinking" | "think" | "raw" | "separate"
-): Promise<{content: string, reasoning_content?: string, usage: Usage | null}> {
+  thinkTagsMode: "strip" | "thinking" | "think" | "raw" | "separate" = THINK_TAGS_MODE as
+    | "strip"
+    | "thinking"
+    | "think"
+    | "raw"
+    | "separate",
+): Promise<{ content: string; reasoning_content?: string; usage: Usage | null }> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
@@ -2256,7 +2071,7 @@ async function collectFullResponse(
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
+      const lines = buffer.split("\n");
       buffer = lines.pop() || "";
 
       for (const line of lines) {
@@ -2270,8 +2085,12 @@ async function collectFullResponse(
             // Capture usage information if present
             if (upstreamData.data.usage) {
               finalUsage = upstreamData.data.usage;
-              debugLog("Captured usage data in non-streaming: prompt=%d, completion=%d, total=%d",
-                finalUsage.prompt_tokens, finalUsage.completion_tokens, finalUsage.total_tokens);
+              debugLog(
+                "Captured usage data in non-streaming: prompt=%d, completion=%d, total=%d",
+                finalUsage.prompt_tokens,
+                finalUsage.completion_tokens,
+                finalUsage.total_tokens,
+              );
             }
 
             // Handle edit_content (complete thinking block)
@@ -2327,7 +2146,6 @@ async function collectFullResponse(
             if (upstreamData.data.done || upstreamData.data.phase === "done") {
               debugLog("Detected completion signal, stopping collection");
 
-
               // Process accumulated thinking if in separate mode (only if not already set from edit_content)
               if (thinkTagsMode === "separate" && accumulatedThinking && !fullReasoning) {
                 const transformed = transformThinking(accumulatedThinking, thinkTagsMode);
@@ -2337,13 +2155,16 @@ async function collectFullResponse(
                 }
               }
 
-              debugLog("collectFullResponse early return - content length: %d, reasoning length: %d",
-                fullContent.length, fullReasoning ? fullReasoning.length : 0);
+              debugLog(
+                "collectFullResponse early return - content length: %d, reasoning length: %d",
+                fullContent.length,
+                fullReasoning ? fullReasoning.length : 0,
+              );
 
               return {
                 content: fullContent,
                 reasoning_content: fullReasoning || undefined,
-                usage: finalUsage
+                usage: finalUsage,
               };
             }
           } catch (_error) {
@@ -2364,13 +2185,16 @@ async function collectFullResponse(
     }
   }
 
-  debugLog("collectFullResponse returning - content length: %d, reasoning length: %d",
-    fullContent.length, fullReasoning ? fullReasoning.length : 0);
+  debugLog(
+    "collectFullResponse returning - content length: %d, reasoning length: %d",
+    fullContent.length,
+    fullReasoning ? fullReasoning.length : 0,
+  );
 
   return {
     content: fullContent,
     reasoning_content: fullReasoning || undefined,
-    usage: finalUsage
+    usage: finalUsage,
   };
 }
 
@@ -2387,11 +2211,11 @@ function handleAnthropicModels(request: Request): Response {
   }
 
   const models = getClaudeModels();
-  
+
   headers.set("Content-Type", "application/json");
   return new Response(JSON.stringify({ data: models }), {
     status: 200,
-    headers
+    headers,
   });
 }
 
@@ -2418,16 +2242,19 @@ async function handleAnthropicMessages(request: Request): Promise<Response> {
     const duration = Date.now() - startTime;
     recordRequestStats(startTime, path, 401);
     addLiveRequest(request.method, path, 401, duration, userAgent);
-    return new Response(JSON.stringify({
-      type: "error",
-      error: {
-        type: "authentication_error",
-        message: "Missing or invalid API key"
-      }
-    }), {
-      status: 401,
-      headers: { ...headers, "Content-Type": "application/json" }
-    });
+    return new Response(
+      JSON.stringify({
+        type: "error",
+        error: {
+          type: "authentication_error",
+          message: "Missing or invalid API key",
+        },
+      }),
+      {
+        status: 401,
+        headers: { ...headers, "Content-Type": "application/json" },
+      },
+    );
   }
 
   const apiKey = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : authHeader;
@@ -2436,16 +2263,19 @@ async function handleAnthropicMessages(request: Request): Promise<Response> {
     const duration = Date.now() - startTime;
     recordRequestStats(startTime, path, 401);
     addLiveRequest(request.method, path, 401, duration, userAgent);
-    return new Response(JSON.stringify({
-      type: "error",
-      error: {
-        type: "authentication_error",
-        message: "Invalid API key"
-      }
-    }), {
-      status: 401,
-      headers: { ...headers, "Content-Type": "application/json" }
-    });
+    return new Response(
+      JSON.stringify({
+        type: "error",
+        error: {
+          type: "authentication_error",
+          message: "Invalid API key",
+        },
+      }),
+      {
+        status: 401,
+        headers: { ...headers, "Content-Type": "application/json" },
+      },
+    );
   }
 
   debugLog("Anthropic API key validated");
@@ -2460,16 +2290,19 @@ async function handleAnthropicMessages(request: Request): Promise<Response> {
     const duration = Date.now() - startTime;
     recordRequestStats(startTime, path, 400);
     addLiveRequest(request.method, path, 400, duration, userAgent);
-    return new Response(JSON.stringify({
-      type: "error",
-      error: {
-        type: "invalid_request_error",
-        message: "Failed to read request body"
-      }
-    }), {
-      status: 400,
-      headers: { ...headers, "Content-Type": "application/json" }
-    });
+    return new Response(
+      JSON.stringify({
+        type: "error",
+        error: {
+          type: "invalid_request_error",
+          message: "Failed to read request body",
+        },
+      }),
+      {
+        status: 400,
+        headers: { ...headers, "Content-Type": "application/json" },
+      },
+    );
   }
 
   // Parse JSON
@@ -2482,20 +2315,27 @@ async function handleAnthropicMessages(request: Request): Promise<Response> {
     const duration = Date.now() - startTime;
     recordRequestStats(startTime, path, 400);
     addLiveRequest(request.method, path, 400, duration, userAgent);
-    return new Response(JSON.stringify({
-      type: "error",
-      error: {
-        type: "invalid_request_error",
-        message: "Invalid JSON"
-      }
-    }), {
-      status: 400,
-      headers: { ...headers, "Content-Type": "application/json" }
-    });
+    return new Response(
+      JSON.stringify({
+        type: "error",
+        error: {
+          type: "invalid_request_error",
+          message: "Invalid JSON",
+        },
+      }),
+      {
+        status: 400,
+        headers: { ...headers, "Content-Type": "application/json" },
+      },
+    );
   }
 
-  debugLog("🤖 Anthropic request parsed - model: %s, stream: %v, messages: %d", 
-    anthropicReq.model, anthropicReq.stream, anthropicReq.messages.length);
+  debugLog(
+    "🤖 Anthropic request parsed - model: %s, stream: %v, messages: %d",
+    anthropicReq.model,
+    anthropicReq.stream,
+    anthropicReq.messages.length,
+  );
 
   // Convert Anthropic request to OpenAI format
   const openaiReq = convertAnthropicToOpenAI(anthropicReq);
@@ -2503,15 +2343,15 @@ async function handleAnthropicMessages(request: Request): Promise<Response> {
 
   // Get model configuration for the mapped Z.ai model
   const modelConfig = getModelConfig(openaiReq.model);
-   debugLog("📋 Using model config: %s (%s)", modelConfig.name, modelConfig.upstreamId);
- 
-   // Get token using token pool
-   let authToken: string;
-   try {
-     authToken = await tokenPool.getToken();
-     debugLog("Token obtained successfully: %s...", authToken.substring(0, 10));
-   } catch (error) {
-     debugLog("Token acquisition failed: %v", error);
+  debugLog("📋 Using model config: %s (%s)", modelConfig.name, modelConfig.upstreamId);
+
+  // Get token using token pool
+  let authToken: string;
+  try {
+    authToken = await tokenPool.getToken();
+    debugLog("Token obtained successfully: %s...", authToken.substring(0, 10));
+  } catch (error) {
+    debugLog("Token acquisition failed: %v", error);
     const duration = Date.now() - startTime;
     recordRequestStats(startTime, path, 500);
     addLiveRequest(request.method, path, 500, duration, userAgent);
@@ -2534,18 +2374,18 @@ async function handleAnthropicMessages(request: Request): Promise<Response> {
     messages: openaiReq.messages,
     params: {
       ...modelConfig.defaultParams,
-      max_tokens: anthropicReq.max_tokens
+      max_tokens: anthropicReq.max_tokens,
     },
     features: {
       enable_thinking: modelConfig.capabilities.thinking,
       image_generation: false,
       web_search: false,
       auto_web_search: false,
-      preview_mode: modelConfig.capabilities.vision
+      preview_mode: modelConfig.capabilities.vision,
     },
     background_tasks: {
       title_generation: false,
-      tags_generation: false
+      tags_generation: false,
     },
     mcp_servers: modelConfig.capabilities.mcp ? [] : undefined,
     model_item: {
@@ -2555,38 +2395,61 @@ async function handleAnthropicMessages(request: Request): Promise<Response> {
       openai: {
         id: modelConfig.upstreamId,
         name: modelConfig.upstreamId,
-        owned_by: "anthropic"
-      }
+        owned_by: "anthropic",
+      },
     },
     tool_servers: [],
     variables: {
       "{{USER_NAME}}": `Guest-${Date.now()}`,
-      "{{CURRENT_DATETIME}}": new Date().toLocaleString(DEFAULT_LANGUAGE)
-    }
+      "{{CURRENT_DATETIME}}": new Date().toLocaleString(DEFAULT_LANGUAGE),
+    },
   };
 
   // Call upstream
   try {
     if (anthropicReq.stream) {
-      return await handleAnthropicStreamResponse(upstreamReq, chatID, msgID, authToken, startTime, path, userAgent, anthropicReq, modelConfig);
+      return await handleAnthropicStreamResponse(
+        upstreamReq,
+        chatID,
+        msgID,
+        authToken,
+        startTime,
+        path,
+        userAgent,
+        anthropicReq,
+        modelConfig,
+      );
     } else {
-      return await handleAnthropicNonStreamResponse(upstreamReq, chatID, msgID, authToken, startTime, path, userAgent, anthropicReq, modelConfig);
+      return await handleAnthropicNonStreamResponse(
+        upstreamReq,
+        chatID,
+        msgID,
+        authToken,
+        startTime,
+        path,
+        userAgent,
+        anthropicReq,
+        modelConfig,
+      );
     }
   } catch (error) {
     debugLog("Anthropic upstream call failed: %v", error);
     const duration = Date.now() - startTime;
     recordRequestStats(startTime, path, 502);
     addLiveRequest(request.method, path, 502, duration, userAgent);
-    return new Response(JSON.stringify({
-      type: "error",
-      error: {
-        type: "api_error",
-        message: "Failed to call upstream"
-      }
-    }), {
-      status: 502,
-      headers: { ...headers, "Content-Type": "application/json" }
-    });
+    return new Response(
+      JSON.stringify({
+        type: "error",
+        error: {
+          type: "api_error",
+          message: "Failed to call upstream",
+        },
+      }),
+      {
+        status: 502,
+        headers: { ...headers, "Content-Type": "application/json" },
+      },
+    );
   }
 }
 
@@ -2599,7 +2462,7 @@ async function handleAnthropicStreamResponse(
   path: string,
   userAgent: string,
   req: AnthropicMessagesRequest,
-  modelConfig: ModelConfig
+  modelConfig: ModelConfig,
 ): Promise<Response> {
   debugLog("Starting Anthropic stream response (chat_id=%s)", chatID);
 
@@ -2611,16 +2474,19 @@ async function handleAnthropicStreamResponse(
       const duration = Date.now() - startTime;
       recordRequestStats(startTime, path, 502);
       addLiveRequest("POST", path, 502, duration, userAgent);
-      return new Response(JSON.stringify({
-        type: "error",
-        error: {
-          type: "api_error",
-          message: "Upstream error"
-        }
-      }), { 
-        status: 502,
-        headers: { "Content-Type": "application/json" }
-      });
+      return new Response(
+        JSON.stringify({
+          type: "error",
+          error: {
+            type: "api_error",
+            message: "Upstream error",
+          },
+        }),
+        {
+          status: 502,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
     }
 
     if (!response.body) {
@@ -2628,16 +2494,19 @@ async function handleAnthropicStreamResponse(
       const duration = Date.now() - startTime;
       recordRequestStats(startTime, path, 502);
       addLiveRequest("POST", path, 502, duration, userAgent);
-      return new Response(JSON.stringify({
-        type: "error",
-        error: {
-          type: "api_error",
-          message: "Upstream response body is empty"
-        }
-      }), { 
-        status: 502,
-        headers: { "Content-Type": "application/json" }
-      });
+      return new Response(
+        JSON.stringify({
+          type: "error",
+          error: {
+            type: "api_error",
+            message: "Upstream response body is empty",
+          },
+        }),
+        {
+          status: 502,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
     }
 
     const { readable, writable } = new TransformStream();
@@ -2674,24 +2543,27 @@ async function handleAnthropicStreamResponse(
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization, x-api-key",
-        "Access-Control-Allow-Credentials": "true"
-      }
+        "Access-Control-Allow-Credentials": "true",
+      },
     });
   } catch (error) {
     debugLog("Error handling Anthropic stream response: %v", error);
     const duration = Date.now() - startTime;
     recordRequestStats(startTime, path, 502);
     addLiveRequest("POST", path, 502, duration, userAgent);
-    return new Response(JSON.stringify({
-      type: "error",
-      error: {
-        type: "api_error",
-        message: "Failed to process stream response"
-      }
-    }), { 
-      status: 502,
-      headers: { "Content-Type": "application/json" }
-    });
+    return new Response(
+      JSON.stringify({
+        type: "error",
+        error: {
+          type: "api_error",
+          message: "Failed to process stream response",
+        },
+      }),
+      {
+        status: 502,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   }
 }
 
@@ -2704,7 +2576,7 @@ async function handleAnthropicNonStreamResponse(
   path: string,
   userAgent: string,
   req: AnthropicMessagesRequest,
-  modelConfig: ModelConfig
+  modelConfig: ModelConfig,
 ): Promise<Response> {
   debugLog("Starting Anthropic non-stream response (chat_id=%s)", chatID);
 
@@ -2716,16 +2588,19 @@ async function handleAnthropicNonStreamResponse(
       const duration = Date.now() - startTime;
       recordRequestStats(startTime, path, 502);
       addLiveRequest("POST", path, 502, duration, userAgent);
-      return new Response(JSON.stringify({
-        type: "error",
-        error: {
-          type: "api_error",
-          message: "Upstream error"
-        }
-      }), { 
-        status: 502,
-        headers: { "Content-Type": "application/json" }
-      });
+      return new Response(
+        JSON.stringify({
+          type: "error",
+          error: {
+            type: "api_error",
+            message: "Upstream error",
+          },
+        }),
+        {
+          status: 502,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
     }
 
     if (!response.body) {
@@ -2733,16 +2608,19 @@ async function handleAnthropicNonStreamResponse(
       const duration = Date.now() - startTime;
       recordRequestStats(startTime, path, 502);
       addLiveRequest("POST", path, 502, duration, userAgent);
-      return new Response(JSON.stringify({
-        type: "error",
-        error: {
-          type: "api_error",
-          message: "Upstream response body is empty"
-        }
-      }), { 
-        status: 502,
-        headers: { "Content-Type": "application/json" }
-      });
+      return new Response(
+        JSON.stringify({
+          type: "error",
+          error: {
+            type: "api_error",
+            message: "Upstream response body is empty",
+          },
+        }),
+        {
+          status: 502,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
     }
 
     // Collect the full response from the stream
@@ -2759,15 +2637,15 @@ async function handleAnthropicNonStreamResponse(
         index: 0,
         message: {
           role: "assistant",
-          content: finalContent
+          content: finalContent,
         },
-        finish_reason: "stop"
+        finish_reason: "stop",
       }],
       usage: finalUsage || {
         prompt_tokens: 0,
         completion_tokens: 0,
-        total_tokens: 0
-      }
+        total_tokens: 0,
+      },
     };
 
     // Convert to Anthropic format
@@ -2784,24 +2662,27 @@ async function handleAnthropicNonStreamResponse(
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization, x-api-key",
-        "Access-Control-Allow-Credentials": "true"
-      }
+        "Access-Control-Allow-Credentials": "true",
+      },
     });
   } catch (error) {
     debugLog("Error processing Anthropic non-stream response: %v", error);
     const duration = Date.now() - startTime;
     recordRequestStats(startTime, path, 502);
     addLiveRequest("POST", path, 502, duration, userAgent);
-    return new Response(JSON.stringify({
-      type: "error",
-      error: {
-        type: "api_error",
-        message: "Failed to process non-stream response"
-      }
-    }), { 
-      status: 502,
-      headers: { "Content-Type": "application/json" }
-    });
+    return new Response(
+      JSON.stringify({
+        type: "error",
+        error: {
+          type: "api_error",
+          message: "Failed to process non-stream response",
+        },
+      }),
+      {
+        status: 502,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   }
 }
 
@@ -2816,45 +2697,51 @@ async function handleAnthropicTokenCount(request: Request): Promise<Response> {
   // API key validation (similar to messages endpoint)
   const authHeader = request.headers.get("Authorization") || request.headers.get("x-api-key");
   if (!authHeader || (!authHeader.startsWith("Bearer ") && !authHeader.startsWith("sk-"))) {
-    return new Response(JSON.stringify({
-      type: "error",
-      error: {
-        type: "authentication_error",
-        message: "Missing or invalid API key"
-      }
-    }), {
-      status: 401,
-      headers: { ...headers, "Content-Type": "application/json" }
-    });
+    return new Response(
+      JSON.stringify({
+        type: "error",
+        error: {
+          type: "authentication_error",
+          message: "Missing or invalid API key",
+        },
+      }),
+      {
+        status: 401,
+        headers: { ...headers, "Content-Type": "application/json" },
+      },
+    );
   }
 
   try {
     const body = await request.text();
     const tokenReq: AnthropicTokenCountRequest = JSON.parse(body);
-    
+
     const inputTokens = countTokens(tokenReq);
-    
+
     const response: AnthropicTokenCountResponse = {
-      input_tokens: inputTokens
+      input_tokens: inputTokens,
     };
 
     headers.set("Content-Type", "application/json");
     return new Response(JSON.stringify(response), {
       status: 200,
-      headers
+      headers,
     });
   } catch (error) {
     debugLog("Token counting failed for Anthropic: %v", error);
-    return new Response(JSON.stringify({
-      type: "error",
-      error: {
-        type: "invalid_request_error",
-        message: "Failed to count tokens"
-      }
-    }), {
-      status: 400,
-      headers: { ...headers, "Content-Type": "application/json" }
-    });
+    return new Response(
+      JSON.stringify({
+        type: "error",
+        error: {
+          type: "invalid_request_error",
+          message: "Failed to count tokens",
+        },
+      }),
+      {
+        status: 400,
+        headers: { ...headers, "Content-Type": "application/json" },
+      },
+    );
   }
 }
 
@@ -2864,10 +2751,10 @@ async function handleAnthropicTokenCount(request: Request): Promise<Response> {
 
 async function getIndexHTML(): Promise<string> {
   try {
-    return await Deno.readTextFile('./ui/index.html');
+    return await Deno.readTextFile("./ui/index.html");
   } catch (error) {
-    console.error('Failed to read index.html:', error);
-    return '<h1>UI files not found. Please ensure ui folder exists.</h1>';
+    console.error("Failed to read index.html:", error);
+    return "<h1>UI files not found. Please ensure ui folder exists.</h1>";
   }
 }
 
@@ -2880,8 +2767,8 @@ async function handleIndex(request: Request): Promise<Response> {
   return new Response(html, {
     status: 200,
     headers: {
-      "Content-Type": "text/html; charset=utf-8"
-    }
+      "Content-Type": "text/html; charset=utf-8",
+    },
   });
 }
 
@@ -2904,22 +2791,22 @@ function handleModels(request: Request): Response {
     return new Response(null, { status: 200, headers });
   }
 
-  const models = SUPPORTED_MODELS.map(model => ({
+  const models = SUPPORTED_MODELS.map((model) => ({
     id: model.name,
-      object: "model",
-      created: Math.floor(Date.now() / 1000),
-      owned_by: "z.ai"
+    object: "model",
+    created: Math.floor(Date.now() / 1000),
+    owned_by: "z.ai",
   }));
 
   const response: ModelsResponse = {
     object: "list",
-    data: models
+    data: models,
   };
 
   headers.set("Content-Type", "application/json");
   return new Response(JSON.stringify(response), {
     status: 200,
-    headers
+    headers,
   });
 }
 
@@ -2940,10 +2827,12 @@ async function handleChatCompletions(request: Request): Promise<Response> {
   debugLog("🌐 User-Agent: %s", userAgent);
 
   // Cherry Studio detection
-  const isCherryStudio = userAgent.toLowerCase().includes('cherry') || userAgent.toLowerCase().includes('studio');
+  const isCherryStudio = userAgent.toLowerCase().includes("cherry") || userAgent.toLowerCase().includes("studio");
   if (isCherryStudio) {
-    debugLog("🍒 Detected Cherry Studio client version: %s",
-      userAgent.match(/CherryStudio\/([^\s]+)/)?.[1] || 'unknown');
+    debugLog(
+      "🍒 Detected Cherry Studio client version: %s",
+      userAgent.match(/CherryStudio\/([^\s]+)/)?.[1] || "unknown",
+    );
   }
 
   // Read feature control headers
@@ -2974,20 +2863,33 @@ async function handleChatCompletions(request: Request): Promise<Response> {
 
     const validModes = ["strip", "thinking", "think", "raw", "separate"];
     const normalizedValue = headerValue.toLowerCase().trim();
-    
+
     if (validModes.includes(normalizedValue)) {
       return normalizedValue as "strip" | "thinking" | "think" | "raw" | "separate";
     }
-    
+
     debugLog("⚠️ Invalid X-Think-Tags-Mode value: %s. Using default: %s", headerValue, THINK_TAGS_MODE);
     return THINK_TAGS_MODE as "strip" | "thinking" | "think" | "raw" | "separate";
   };
 
   const currentThinkTagsMode = parseThinkTagsMode(thinkTagsModeHeader);
 
-  debugLog("Feature headers received: Thinking=%s, WebSearch=%s, AutoWebSearch=%s, ImageGen=%s, TitleGen=%s, TagsGen=%s, MCP=%s",
-    thinkingHeader, webSearchHeader, autoWebSearchHeader, imageGenerationHeader, titleGenerationHeader, tagsGenerationHeader, mcpHeader);
-  debugLog("🎯 Think tags mode: %s (header: %s, default: %s)", currentThinkTagsMode, thinkTagsModeHeader || "not provided", THINK_TAGS_MODE);
+  debugLog(
+    "Feature headers received: Thinking=%s, WebSearch=%s, AutoWebSearch=%s, ImageGen=%s, TitleGen=%s, TagsGen=%s, MCP=%s",
+    thinkingHeader,
+    webSearchHeader,
+    autoWebSearchHeader,
+    imageGenerationHeader,
+    titleGenerationHeader,
+    tagsGenerationHeader,
+    mcpHeader,
+  );
+  debugLog(
+    "🎯 Think tags mode: %s (header: %s, default: %s)",
+    currentThinkTagsMode,
+    thinkTagsModeHeader || "not provided",
+    THINK_TAGS_MODE,
+  );
 
   const headers = new Headers();
   setCORSHeaders(headers);
@@ -2996,24 +2898,24 @@ async function handleChatCompletions(request: Request): Promise<Response> {
     return new Response(null, { status: 200, headers });
   }
 
-   // API key validation
-   const authHeader = request.headers.get("Authorization");
-   if (authHeader && !validateApiKey(authHeader)) {
-     debugLog("Invalid Authorization header");
-     const duration = Date.now() - startTime;
-     recordRequestStats(startTime, path, 401);
-     addLiveRequest(request.method, path, 401, duration, userAgent);
-     return new Response("Invalid Authorization header", {
-       status: 401,
-       headers
-     });
-   }
+  // API key validation
+  const authHeader = request.headers.get("Authorization");
+  if (authHeader && !validateApiKey(authHeader)) {
+    debugLog("Invalid Authorization header");
+    const duration = Date.now() - startTime;
+    recordRequestStats(startTime, path, 401);
+    addLiveRequest(request.method, path, 401, duration, userAgent);
+    return new Response("Invalid Authorization header", {
+      status: 401,
+      headers,
+    });
+  }
 
-   if (!authHeader) {
-     debugLog("No Authorization header, using anonymous token");
-   } else {
-     debugLog("API key validated");
-   }
+  if (!authHeader) {
+    debugLog("No Authorization header, using anonymous token");
+  } else {
+    debugLog("API key validated");
+  }
 
   // Read request body
   let body: string;
@@ -3030,7 +2932,7 @@ async function handleChatCompletions(request: Request): Promise<Response> {
     addLiveRequest(request.method, path, 400, duration, userAgent);
     return new Response("Failed to read request body", {
       status: 400,
-      headers
+      headers,
     });
   }
 
@@ -3048,7 +2950,7 @@ async function handleChatCompletions(request: Request): Promise<Response> {
     addLiveRequest(request.method, path, 400, duration, userAgent);
     return new Response("Invalid JSON", {
       status: 400,
-      headers
+      headers,
     });
   }
 
@@ -3059,16 +2961,27 @@ async function handleChatCompletions(request: Request): Promise<Response> {
   }
 
   const modelConfig = getModelConfig(req.model);
-  debugLog("Request parsed - model: %s (%s), stream: %v, messages: %d", req.model, modelConfig.name, req.stream, req.messages.length);
+  debugLog(
+    "Request parsed - model: %s (%s), stream: %v, messages: %d",
+    req.model,
+    modelConfig.name,
+    req.stream,
+    req.messages.length,
+  );
 
-   // Detect model advanced capabilities
+  // Detect model advanced capabilities
   const capabilities = ModelCapabilityDetector.detectCapabilities(
     req.model,
-    req.reasoning
+    req.reasoning,
   );
-     debugLog("Model capability detection: thinking=%s, search=%s, advanced search=%s, vision=%s, MCP=%s",
-     capabilities.thinking, capabilities.search, capabilities.advancedSearch,
-     capabilities.vision, capabilities.mcp);
+  debugLog(
+    "Model capability detection: thinking=%s, search=%s, advanced search=%s, vision=%s, MCP=%s",
+    capabilities.thinking,
+    capabilities.search,
+    capabilities.advancedSearch,
+    capabilities.vision,
+    capabilities.mcp,
+  );
 
   // Cherry Studio debug: inspect each message
   debugLog("🔍 Cherry Studio debug - inspect raw messages:");
@@ -3076,7 +2989,7 @@ async function handleChatCompletions(request: Request): Promise<Response> {
     const msg = req.messages[i];
     debugLog("  Message[%d] role: %s", i, msg.role);
 
-    if (typeof msg.content === 'string') {
+    if (typeof msg.content === "string") {
       debugLog("  Message[%d] content: string, length: %d", i, msg.content.length);
       if (msg.content.length === 0) {
         debugLog("  ⚠️  Message[%d] content is empty string!", i);
@@ -3088,12 +3001,15 @@ async function handleChatCompletions(request: Request): Promise<Response> {
       for (let j = 0; j < msg.content.length; j++) {
         const block = msg.content[j];
         debugLog("    Block[%d] type: %s", j, block.type);
-        if (block.type === 'text' && block.text) {
+        if (block.type === "text" && block.text) {
           debugLog("    Block[%d] text: %s", j, block.text.substring(0, 50));
-        } else if (block.type === 'image_url' && block.image_url?.url) {
-          debugLog("    Block[%d] image_url: %s format, length: %d", j,
-            block.image_url.url.startsWith('data:') ? 'base64' : 'url',
-            block.image_url.url.length);
+        } else if (block.type === "image_url" && block.image_url?.url) {
+          debugLog(
+            "    Block[%d] image_url: %s format, length: %d",
+            j,
+            block.image_url.url.startsWith("data:") ? "base64" : "url",
+            block.image_url.url.length,
+          );
         }
       }
     } else {
@@ -3119,144 +3035,178 @@ async function handleChatCompletions(request: Request): Promise<Response> {
 
   // Process and validate messages (multimodal handling)
   const processedMessages = processMessages(req.messages, modelConfig);
-   debugLog("Messages processed, count after processing: %d", processedMessages.length);
+  debugLog("Messages processed, count after processing: %d", processedMessages.length);
 
-   // Check if contains multimodal content and use new image processor
-   const hasMultimodal = ImageProcessor.hasImageContent(req.messages);
+  // Check if contains multimodal content and use new image processor
+  const hasMultimodal = ImageProcessor.hasImageContent(req.messages);
   let finalMessages = processedMessages;
   let uploadedFiles: UploadedFile[] = [];
 
   if (hasMultimodal) {
-      debugLog("🎯 Detected image content, starting processing, model: %s", modelConfig.name);
- 
-     // Check anonymous token restrictions
-     if (tokenPool.isAnonymousToken(authToken)) {
-       debugLog("❌ Anonymous token does not support image processing");
+    debugLog("🎯 Detected image content, starting processing, model: %s", modelConfig.name);
+
+    // Check anonymous token restrictions
+    if (tokenPool.isAnonymousToken(authToken)) {
+      debugLog("❌ Anonymous token does not support image processing");
       const duration = Date.now() - startTime;
       recordRequestStats(startTime, path, 400);
       addLiveRequest(request.method, path, 400, duration, userAgent);
-       return new Response("Anonymous token does not support image processing, please configure ZAI_TOKEN environment variable", {
-         status: 400,
-         headers,
-       });
+      return new Response(
+        "Anonymous token does not support image processing, please configure ZAI_TOKEN environment variable",
+        {
+          status: 400,
+          headers,
+        },
+      );
     }
 
     if (!capabilities.vision) {
-       debugLog("❌ Serious error: Model does not support multimodal, but received image content!");
-       debugLog(
-         "💡 Cherry Studio users please check: Confirm selected 'glm-4.5v' not 'GLM-4.5'"
-       );
-       debugLog(
-         "🔧 Model mapping status: %s → %s (vision: %s)",
-         req.model,
-         modelConfig.upstreamId,
-         capabilities.vision
-       );
+      debugLog("❌ Serious error: Model does not support multimodal, but received image content!");
+      debugLog(
+        "💡 Cherry Studio users please check: Confirm selected 'glm-4.5v' not 'GLM-4.5'",
+      );
+      debugLog(
+        "🔧 Model mapping status: %s → %s (vision: %s)",
+        req.model,
+        modelConfig.upstreamId,
+        capabilities.vision,
+      );
     } else {
-       debugLog("✅ Using advanced image processor to process image content");
+      debugLog("✅ Using advanced image processor to process image content");
 
-       try {
-         // Use new image processor
-         const imageProcessResult = await ImageProcessor.processImages(
+      try {
+        // Use new image processor
+        const imageProcessResult = await ImageProcessor.processImages(
           req.messages,
           authToken,
-          capabilities.vision
+          capabilities.vision,
         );
 
         finalMessages = imageProcessResult.processedMessages;
         uploadedFiles = imageProcessResult.uploadedFiles;
 
-         debugLog("Image processing completed: processed messages=%d, uploaded files=%d",
-           finalMessages.length, uploadedFiles.length);
-
+        debugLog(
+          "Image processing completed: processed messages=%d, uploaded files=%d",
+          finalMessages.length,
+          uploadedFiles.length,
+        );
       } catch (error) {
-         debugLog("Image processing failed: %v", error);
+        debugLog("Image processing failed: %v", error);
         const duration = Date.now() - startTime;
         recordRequestStats(startTime, path, 500);
         addLiveRequest(request.method, path, 500, duration, userAgent);
-         return new Response("Image processing failed", {
+        return new Response("Image processing failed", {
           status: 500,
           headers,
         });
       }
     }
   } else if (capabilities.vision && modelConfig.id === "glm-4.5v") {
-     debugLog("ℹ️ Using GLM-4.5V model but no image data detected, processing text content only");
+    debugLog("ℹ️ Using GLM-4.5V model but no image data detected, processing text content only");
   }
 
   // Generate session IDs (prefer client-provided values if present in incoming body)
-  const chatID = (typeof incomingBody === "object" && incomingBody?.chat_id) ? String(incomingBody.chat_id) : `${Date.now()}-${Math.floor(Date.now() / 1000)}`;
-  const msgID = (typeof incomingBody === "object" && incomingBody?.id) ? String(incomingBody.id) : Date.now().toString();
+  const chatID = (typeof incomingBody === "object" && incomingBody?.chat_id)
+    ? String(incomingBody.chat_id)
+    : `${Date.now()}-${Math.floor(Date.now() / 1000)}`;
+  const msgID = (typeof incomingBody === "object" && incomingBody?.id)
+    ? String(incomingBody.id)
+    : Date.now().toString();
 
-   // Get MCP server list for model (consistent with Python version)
-   const mcpServers = ModelCapabilityDetector.getMCPServersForModel(capabilities);
-   const hiddenMcpFeatures = ModelCapabilityDetector.getHiddenMCPFeatures();
+  // Get MCP server list for model (consistent with Python version)
+  const mcpServers = ModelCapabilityDetector.getMCPServersForModel(capabilities);
+  const hiddenMcpFeatures = ModelCapabilityDetector.getHiddenMCPFeatures();
 
-   // Extract last user message content (for signature)
-   const lastUserContent = ImageProcessor.extractLastUserContent(req.messages);
+  // Extract last user message content (for signature)
+  const lastUserContent = ImageProcessor.extractLastUserContent(req.messages);
 
-   // Determine model characteristics (consistent with Python version)
-   // Allow header to override capability detection
-   const thinkingHeaderValue = parseBooleanHeader(thinkingHeader);
-   const isThinking = thinkingHeaderValue !== null ? thinkingHeaderValue : capabilities.thinking;
-   const isSearch = capabilities.search || capabilities.advancedSearch;
+  // Determine model characteristics (consistent with Python version)
+  // Allow header to override capability detection
+  const thinkingHeaderValue = parseBooleanHeader(thinkingHeader);
+  const isThinking = thinkingHeaderValue !== null ? thinkingHeaderValue : capabilities.thinking;
+  const isSearch = capabilities.search || capabilities.advancedSearch;
 
-   debugLog("🧠 Thinking mode: %s (header: %s, capability: %s, final: %s)",
-     isThinking, thinkingHeader || "not set", capabilities.thinking, isThinking);
+  debugLog(
+    "🧠 Thinking mode: %s (header: %s, capability: %s, final: %s)",
+    isThinking,
+    thinkingHeader || "not set",
+    capabilities.thinking,
+    isThinking,
+  );
 
-   // Construct upstream request (matching Python version exactly)
-   const upstreamReq: UpstreamRequest = {
-     stream: true, // Always fetch upstream as stream
-     model: modelConfig.upstreamId,
-     messages: finalMessages,
-     signature_prompt: lastUserContent, // Used for signature generation
-     params: modelConfig.defaultParams,
-     features: {
-       image_generation: false,
-       web_search: isSearch,
-       auto_web_search: isSearch,
-       preview_mode: isSearch,
-       flags: [],
-       features: hiddenMcpFeatures,
-       enable_thinking: isThinking,
-     },
-     background_tasks: {
-       title_generation: false,
-       tags_generation: false,
-     },
-     mcp_servers: mcpServers.length > 0 ? mcpServers : undefined,
-     model_item: {
-       id: modelConfig.upstreamId,
-       name: req.model, // Use original request model name
-       owned_by: "z.ai"
-     },
-     chat_id: chatID,
-     id: msgID,
-     tool_servers: [],
-     variables: {
-       "{{USER_NAME}}": "Guest",
-       "{{USER_LOCATION}}": "Unknown",
-       "{{CURRENT_DATETIME}}": new Date().toLocaleString(DEFAULT_LANGUAGE),
-       "{{CURRENT_DATE}}": new Date().toLocaleDateString(DEFAULT_LANGUAGE),
-       "{{CURRENT_TIME}}": new Date().toLocaleTimeString(DEFAULT_LANGUAGE),
-       "{{CURRENT_WEEKDAY}}": new Date().toLocaleDateString(DEFAULT_LANGUAGE, {
-         weekday: "long",
-       }),
-       "{{CURRENT_TIMEZONE}}": "Asia/Shanghai",
-       "{{USER_LANGUAGE}}": DEFAULT_LANGUAGE,
-     },
-     // Add file list (if there are uploaded images and not vision model)
-     ...(uploadedFiles.length > 0 && !capabilities.vision ? { files: uploadedFiles } : {}),
-   };
- 
-   // Token already acquired earlier
+  // Construct upstream request (matching Python version exactly)
+  const upstreamReq: UpstreamRequest = {
+    stream: true, // Always fetch upstream as stream
+    model: modelConfig.upstreamId,
+    messages: finalMessages,
+    signature_prompt: lastUserContent, // Used for signature generation
+    params: modelConfig.defaultParams,
+    features: {
+      image_generation: false,
+      web_search: isSearch,
+      auto_web_search: isSearch,
+      preview_mode: isSearch,
+      flags: [],
+      features: hiddenMcpFeatures,
+      enable_thinking: isThinking,
+    },
+    background_tasks: {
+      title_generation: false,
+      tags_generation: false,
+    },
+    mcp_servers: mcpServers.length > 0 ? mcpServers : undefined,
+    model_item: {
+      id: modelConfig.upstreamId,
+      name: req.model, // Use original request model name
+      owned_by: "z.ai",
+    },
+    chat_id: chatID,
+    id: msgID,
+    tool_servers: [],
+    variables: {
+      "{{USER_NAME}}": "Guest",
+      "{{USER_LOCATION}}": "Unknown",
+      "{{CURRENT_DATETIME}}": new Date().toLocaleString(DEFAULT_LANGUAGE),
+      "{{CURRENT_DATE}}": new Date().toLocaleDateString(DEFAULT_LANGUAGE),
+      "{{CURRENT_TIME}}": new Date().toLocaleTimeString(DEFAULT_LANGUAGE),
+      "{{CURRENT_WEEKDAY}}": new Date().toLocaleDateString(DEFAULT_LANGUAGE, {
+        weekday: "long",
+      }),
+      "{{CURRENT_TIMEZONE}}": "Asia/Shanghai",
+      "{{USER_LANGUAGE}}": DEFAULT_LANGUAGE,
+    },
+    // Add file list (if there are uploaded images and not vision model)
+    ...(uploadedFiles.length > 0 && !capabilities.vision ? { files: uploadedFiles } : {}),
+  };
+
+  // Token already acquired earlier
 
   // Call upstream
   try {
     if (req.stream) {
-      return await handleStreamResponse(upstreamReq, chatID, authToken, startTime, path, userAgent, req, modelConfig, currentThinkTagsMode);
+      return await handleStreamResponse(
+        upstreamReq,
+        chatID,
+        authToken,
+        startTime,
+        path,
+        userAgent,
+        req,
+        modelConfig,
+        currentThinkTagsMode,
+      );
     } else {
-      return await handleNonStreamResponse(upstreamReq, chatID, authToken, startTime, path, userAgent, req, modelConfig, currentThinkTagsMode);
+      return await handleNonStreamResponse(
+        upstreamReq,
+        chatID,
+        authToken,
+        startTime,
+        path,
+        userAgent,
+        req,
+        modelConfig,
+        currentThinkTagsMode,
+      );
     }
   } catch (error) {
     debugLog("Upstream call failed: %v", error);
@@ -3265,7 +3215,7 @@ async function handleChatCompletions(request: Request): Promise<Response> {
     addLiveRequest(request.method, path, 502, duration, userAgent);
     return new Response("Failed to call upstream", {
       status: 502,
-      headers
+      headers,
     });
   }
 }
@@ -3292,7 +3242,7 @@ async function handleStreamResponse(
   userAgent: string,
   req: OpenAIRequest,
   modelConfig: ModelConfig,
-  thinkTagsMode: "strip" | "thinking" | "think" | "raw" | "separate"
+  thinkTagsMode: "strip" | "thinking" | "think" | "raw" | "separate",
 ): Promise<Response> {
   debugLog("Starting to handle stream response (chat_id=%s)", chatID);
 
@@ -3328,20 +3278,24 @@ async function handleStreamResponse(
       choices: [
         {
           index: 0,
-          delta: { role: "assistant" }
-        }
-      ]
+          delta: { role: "assistant" },
+        },
+      ],
     };
 
     writer.write(encoder.encode(`data: ${JSON.stringify(firstChunk)}\n\n`));
 
     // Process upstream SSE stream asynchronously
-    processUpstreamStream(response.body, writer, encoder, req.model, thinkTagsMode).then(usage => {
+    processUpstreamStream(response.body, writer, encoder, req.model, thinkTagsMode).then((usage) => {
       if (usage) {
-        debugLog("Stream completed with usage: prompt=%d, completion=%d, total=%d",
-          usage.prompt_tokens, usage.completion_tokens, usage.total_tokens);
+        debugLog(
+          "Stream completed with usage: prompt=%d, completion=%d, total=%d",
+          usage.prompt_tokens,
+          usage.completion_tokens,
+          usage.total_tokens,
+        );
       }
-    }).catch(error => {
+    }).catch((error) => {
       debugLog("Error while processing upstream stream: %v", error);
     });
 
@@ -3359,8 +3313,8 @@ async function handleStreamResponse(
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        "Access-Control-Allow-Credentials": "true"
-      }
+        "Access-Control-Allow-Credentials": "true",
+      },
     });
   } catch (error) {
     debugLog("Error handling stream response: %v", error);
@@ -3380,7 +3334,7 @@ async function handleNonStreamResponse(
   userAgent: string,
   req: OpenAIRequest,
   modelConfig: ModelConfig,
-  thinkTagsMode: "strip" | "thinking" | "think" | "raw" | "separate"
+  thinkTagsMode: "strip" | "thinking" | "think" | "raw" | "separate",
 ): Promise<Response> {
   debugLog("Starting to handle non-stream response (chat_id=%s)", chatID);
 
@@ -3403,9 +3357,15 @@ async function handleNonStreamResponse(
       return new Response("Upstream response body is empty", { status: 502 });
     }
 
-    const { content: finalContent, reasoning_content: reasoningContent, usage: finalUsage } = await collectFullResponse(response.body, thinkTagsMode);
+    const { content: finalContent, reasoning_content: reasoningContent, usage: finalUsage } = await collectFullResponse(
+      response.body,
+      thinkTagsMode,
+    );
     debugLog("Content collection completed, final length: %d", finalContent.length);
-    debugLog("Reasoning content status: %s", reasoningContent ? `present (${reasoningContent.length} chars)` : "not present");
+    debugLog(
+      "Reasoning content status: %s",
+      reasoningContent ? `present (${reasoningContent.length} chars)` : "not present",
+    );
 
     if (reasoningContent) {
       debugLog("Reasoning content collected, length: %d", reasoningContent.length);
@@ -3413,13 +3373,17 @@ async function handleNonStreamResponse(
     }
 
     if (finalUsage) {
-      debugLog("Non-stream completed with usage: prompt=%d, completion=%d, total=%d",
-        finalUsage.prompt_tokens, finalUsage.completion_tokens, finalUsage.total_tokens);
+      debugLog(
+        "Non-stream completed with usage: prompt=%d, completion=%d, total=%d",
+        finalUsage.prompt_tokens,
+        finalUsage.completion_tokens,
+        finalUsage.total_tokens,
+      );
     }
 
     const message: Message = {
       role: "assistant",
-      content: finalContent || ""
+      content: finalContent || "",
     };
 
     // Add reasoning_content if available
@@ -3436,10 +3400,10 @@ async function handleNonStreamResponse(
         {
           index: 0,
           message: message,
-          finish_reason: "stop"
-        }
+          finish_reason: "stop",
+        },
       ],
-      usage: finalUsage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
+      usage: finalUsage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
     };
 
     const duration = Date.now() - startTime;
@@ -3453,8 +3417,8 @@ async function handleNonStreamResponse(
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        "Access-Control-Allow-Credentials": "true"
-      }
+        "Access-Control-Allow-Credentials": "true",
+      },
     });
   } catch (error) {
     debugLog("Error processing non-stream response: %v", error);
@@ -3471,10 +3435,10 @@ async function handleNonStreamResponse(
  */
 async function getDashboardHTML(): Promise<string> {
   try {
-    return await Deno.readTextFile('./ui/dashboard/dashboard.html');
+    return await Deno.readTextFile("./ui/dashboard/dashboard.html");
   } catch (error) {
-    console.error('Failed to read dashboard.html:', error);
-    return '<h1>UI files not found. Please ensure ui folder exists.</h1>';
+    console.error("Failed to read dashboard.html:", error);
+    return "<h1>UI files not found. Please ensure ui folder exists.</h1>";
   }
 }
 
@@ -3490,8 +3454,8 @@ async function handleDashboard(request: Request): Promise<Response> {
   return new Response(html, {
     status: 200,
     headers: {
-      "Content-Type": "text/html; charset=utf-8"
-    }
+      "Content-Type": "text/html; charset=utf-8",
+    },
   });
 }
 
@@ -3499,8 +3463,8 @@ function handleDashboardStats(_request: Request): Response {
   return new Response(getStatsData(), {
     status: 200,
     headers: {
-      "Content-Type": "application/json"
-    }
+      "Content-Type": "application/json",
+    },
   });
 }
 
@@ -3508,17 +3472,17 @@ function handleDashboardRequests(_request: Request): Response {
   return new Response(getLiveRequestsData(), {
     status: 200,
     headers: {
-      "Content-Type": "application/json"
-    }
+      "Content-Type": "application/json",
+    },
   });
 }
 
 async function getDocsHTML(): Promise<string> {
   try {
-    return await Deno.readTextFile('./ui/docs/docs.html');
+    return await Deno.readTextFile("./ui/docs/docs.html");
   } catch (error) {
-    console.error('Failed to read docs.html:', error);
-    return '<h1>UI files not found. Please ensure ui folder exists.</h1>';
+    console.error("Failed to read docs.html:", error);
+    return "<h1>UI files not found. Please ensure ui folder exists.</h1>";
   }
 }
 
@@ -3534,8 +3498,8 @@ async function handleDocs(request: Request): Promise<Response> {
   return new Response(html, {
     status: 200,
     headers: {
-      "Content-Type": "text/html; charset=utf-8"
-    }
+      "Content-Type": "text/html; charset=utf-8",
+    },
   });
 }
 
@@ -3543,7 +3507,7 @@ async function handleStatic(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const path = url.pathname.substring(4); // remove /ui/ prefix
   const filePath = `./ui/${path}`;
-  
+
   try {
     const fileBytes = await Deno.readFile(filePath);
     const contentType = getContentType(path);
@@ -3551,8 +3515,8 @@ async function handleStatic(request: Request): Promise<Response> {
       status: 200,
       headers: {
         "Content-Type": contentType,
-        "Cache-Control": "public, max-age=3600"
-      }
+        "Cache-Control": "public, max-age=3600",
+      },
     });
   } catch (error) {
     console.error(`Failed to serve static file ${filePath}:`, error);
@@ -3561,19 +3525,23 @@ async function handleStatic(request: Request): Promise<Response> {
 }
 
 function getContentType(path: string): string {
-  const ext = path.split('.').pop()?.toLowerCase();
+  const ext = path.split(".").pop()?.toLowerCase();
   switch (ext) {
-    case 'html': return 'text/html; charset=utf-8';
-    case 'css': return 'text/css; charset=utf-8';
-    case 'js': return 'application/javascript; charset=utf-8';
-    default: return 'application/octet-stream';
+    case "html":
+      return "text/html; charset=utf-8";
+    case "css":
+      return "text/css; charset=utf-8";
+    case "js":
+      return "application/javascript; charset=utf-8";
+    default:
+      return "application/octet-stream";
   }
 }
 
 // Main HTTP server entrypoint
 function main() {
   console.log(`OpenAI-compatible API server starting`);
-  console.log(`Supported models: ${SUPPORTED_MODELS.map(m => `${m.id} (${m.name})`).join(', ')}`);
+  console.log(`Supported models: ${SUPPORTED_MODELS.map((m) => `${m.id} (${m.name})`).join(", ")}`);
   console.log(`Upstream: ${UPSTREAM_URL}`);
   console.log(`Debug mode: ${DEBUG_MODE}`);
   console.log(`Default streaming: ${DEFAULT_STREAM}`);
@@ -3588,7 +3556,6 @@ function main() {
 
   Deno.serve({ port, handler: handleRequest });
 }
-
 
 // Handle HTTP requests (Deno Deploy)
 async function handleRequest(request: Request): Promise<Response> {

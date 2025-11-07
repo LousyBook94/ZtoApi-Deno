@@ -1,1 +1,40 @@
+# Environment variables
 .env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+server.log
+
+# OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test artifacts
+coverage/
+.nyc_output/
+
+# Deno
+.deno/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Build artifacts
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.sublime-*
+
+# Node (if any)
+node_modules/

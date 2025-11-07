@@ -59,7 +59,7 @@ html {
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: var(--bg-primary);
   color: var(--text-primary);
   line-height: 1.6;
@@ -99,7 +99,7 @@ body.loaded {
 
 .floating-shapes::before,
 .floating-shapes::after {
-  content: '';
+  content: "";
   position: absolute;
   border-radius: 50%;
   background: var(--accent-gradient);
@@ -213,7 +213,7 @@ h1 {
 }
 
 h1::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: -10px;
   left: 50%;
@@ -235,7 +235,7 @@ h2 {
 }
 
 h2::before {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   top: 50%;
@@ -267,7 +267,7 @@ h3 {
 }
 
 .toc::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
@@ -307,7 +307,7 @@ h3 {
 }
 
 .toc a::before {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   top: 50%;
@@ -361,7 +361,7 @@ section:hover {
 }
 
 .endpoint::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
@@ -400,16 +400,16 @@ section:hover {
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
 }
 
-.get { 
+.get {
   background: linear-gradient(135deg, #28a745, #20c997);
 }
 
-.post { 
+.post {
   background: linear-gradient(135deg, #007bff, #6610f2);
 }
 
 .path {
-  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  font-family: "SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace;
   background: var(--code-bg);
   padding: 6px 12px;
   border-radius: 8px;
@@ -468,7 +468,7 @@ tr:last-child td {
   border-radius: 12px;
   padding: 20px;
   margin: 20px 0;
-  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  font-family: "SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace;
   white-space: pre-wrap;
   overflow-x: auto;
   position: relative;
@@ -481,7 +481,7 @@ tr:last-child td {
 }
 
 .example::before, .response::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
@@ -534,7 +534,7 @@ tr:last-child td {
 }
 
 .tab button::before {
-  content: '';
+  content: "";
   position: absolute;
   bottom: 0;
   left: 0;
@@ -607,31 +607,31 @@ tr:last-child td {
     margin: 20px 40px;
     padding: 20px;
   }
-  
+
   h1 {
     font-size: 2rem;
   }
-  
+
   h2 {
     font-size: 1.5rem;
   }
-  
+
   .tab {
     flex-direction: column;
   }
-  
+
   .tab button {
     border-bottom: 1px solid var(--border-color);
   }
-  
+
   .tab button:last-child {
     border-bottom: none;
   }
-  
+
   table {
     font-size: 14px;
   }
-  
+
   th, td {
     padding: 10px;
   }

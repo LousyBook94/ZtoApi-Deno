@@ -20,6 +20,7 @@ You can control various model features using HTTP headers when making requests t
 ### Usage Examples
 
 **Enable thinking mode:**
+
 ```bash
 curl -X POST http://localhost:9090/v1/chat/completions \
   -H "Content-Type: application/json" \
@@ -29,6 +30,7 @@ curl -X POST http://localhost:9090/v1/chat/completions \
 ```
 
 **Disable thinking mode:**
+
 ```bash
 curl -X POST http://localhost:9090/v1/chat/completions \
   -H "Content-Type: application/json" \
@@ -38,6 +40,7 @@ curl -X POST http://localhost:9090/v1/chat/completions \
 ```
 
 **Enable web search:**
+
 ```bash
 curl -X POST http://localhost:9090/v1/chat/completions \
   -H "Content-Type: application/json" \
@@ -47,6 +50,7 @@ curl -X POST http://localhost:9090/v1/chat/completions \
 ```
 
 **Multiple features at once:**
+
 ```bash
 curl -X POST http://localhost:9090/v1/chat/completions \
   -H "Content-Type: application/json" \
@@ -72,6 +76,7 @@ The `X-Think-Tags-Mode` header allows you to customize how thinking content is p
 ### Usage Examples
 
 **Strip thinking content for clean responses:**
+
 ```bash
 curl -X POST http://localhost:9090/v1/chat/completions \
   -H "Content-Type: application/json" \
@@ -82,6 +87,7 @@ curl -X POST http://localhost:9090/v1/chat/completions \
 ```
 
 **Convert to thinking tags for debugging:**
+
 ```bash
 curl -X POST http://localhost:9090/v1/chat/completions \
   -H "Content-Type: application/json" \
@@ -92,6 +98,7 @@ curl -X POST http://localhost:9090/v1/chat/completions \
 ```
 
 **Convert to simple think tags:**
+
 ```bash
 curl -X POST http://localhost:9090/v1/chat/completions \
   -H "Content-Type: application/json" \
@@ -102,6 +109,7 @@ curl -X POST http://localhost:9090/v1/chat/completions \
 ```
 
 **Get raw content for advanced processing:**
+
 ```bash
 curl -X POST http://localhost:9090/v1/chat/completions \
   -H "Content-Type: application/json" \
@@ -112,6 +120,7 @@ curl -X POST http://localhost:9090/v1/chat/completions \
 ```
 
 **Separate reasoning for structured data:**
+
 ```bash
 curl -X POST http://localhost:9090/v1/chat/completions \
   -H "Content-Type: application/json" \
@@ -122,6 +131,7 @@ curl -X POST http://localhost:9090/v1/chat/completions \
 ```
 
 **Python example with dynamic thinking mode:**
+
 ```python
 from openai import OpenAI
 
@@ -151,13 +161,16 @@ print("Reasoning:", response.choices[0].message.reasoning_content)
 ## 🔐 Enhanced Security Features
 
 ### Dual-Layer HMAC-SHA256 Signature
+
 ZtoApi now uses an advanced signature mechanism for all upstream requests:
+
 - **Base64 Encoding**: Request bodies are Base64 encoded for secure transmission.
 - **Dual-Layer HMAC**: Two-stage HMAC-SHA256 process for enhanced security.
 - **Configurable Key**: Set `ZAI_SIGNING_SECRET` environment variable to customize the signature key.
 - **Automatic Generation**: Signatures are generated automatically for each request.
 
 ### Token Pool Management
+
 - **Automatic Token Handling**: Efficient management of API tokens with built-in pooling.
 - **Anonymous Access**: Supports token fetching for unauthenticated requests.
 - **Rotation and Reuse**: Tokens are rotated and reused to optimize performance and reliability.
