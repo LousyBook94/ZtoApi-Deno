@@ -928,21 +928,32 @@ function _normalizeModelId(modelId: string): string {
   const normalized = modelId.toLowerCase().trim();
 
   const modelMappings: Record<string, string> = {
+    // GLM-4.5V mappings
     "glm-4.5v": "glm-4.5v",
     "glm4.5v": "glm-4.5v",
     "glm_4.5v": "glm-4.5v",
+    "glm-4.5v-api": "glm-4.5v",
     "gpt-4-vision-preview": "glm-4.5v", // backward compatibility
+    "glm-4.5V": "glm-4.5v", // Allow capital V
+
+    // GLM-4.5 mappings
     "0727-360b-api": "0727-360B-API",
     "glm-4.5": "0727-360B-API",
     "glm4.5": "0727-360B-API",
     "glm_4.5": "0727-360B-API",
+    "glm-4.5-api": "0727-360B-API",
     "gpt-4": "0727-360B-API", // backward compatibility
+
     // GLM-4.6 mappings (from example requests)
     "glm-4.6": "GLM-4-6-API-V1",
     "glm4.6": "GLM-4-6-API-V1",
     "glm_4.6": "GLM-4-6-API-V1",
     "glm-4-6-api-v1": "GLM-4-6-API-V1",
     "glm-4-6": "GLM-4-6-API-V1",
+    "glm-4.6-api-v1": "GLM-4-6-API-V1", // Allow lowercase API
+    
+    // Add common capitalized versions, mapping to the already normalized lowercase keys
+    // The input is already normalized to lowercase, so these explicit duplicates are unnecessary.
   };
 
   const mapped = modelMappings[normalized];
@@ -3576,7 +3587,7 @@ function main() {
   console.log(`OpenAI-compatible API server starting`);
   console.log(`Supported models: ${SUPPORTED_MODELS.map((m) => `${m.id} (${m.name})`).join(", ")}`);
   console.log(`Upstream: ${UPSTREAM_URL}`);
-  console.log(`Debug mode: ${DEBUG_MODE}`);
+  console.log(`Debug mode: ${DEBUG_MODE ? "ENABLED (Verbose Logging)" : "DISABLED (Performance Mode)"}`);
   console.log(`Default streaming: ${DEFAULT_STREAM}`);
   console.log(`Dashboard enabled: ${DASHBOARD_ENABLED}`);
 
