@@ -1583,14 +1583,14 @@ export function transformThinking(
       reasoning = reasoning.trim();
 
       // Extract final content (everything outside <details> tags)
-      finalContent = content.replace(/<details[^>]*>.*?<\/details>/gs, "").trim();
+      finalContent = content.replace(/<details[^>]*>.*?<\/details>/gs, "");
     } else if (content.includes("</details>")) {
       // Handle partial edit_content (starts mid-tag)
       // Split by </details> to separate reasoning from content
       const parts = content.split("</details>");
 
       reasoning = parts[0];
-      finalContent = parts.slice(1).join("</details>").trim();
+      finalContent = parts.slice(1).join("</details>");
 
       // Remove <summary>...</summary>
       reasoning = reasoning.replace(/<summary>.*?<\/summary>/gs, "");
@@ -1673,7 +1673,7 @@ export function transformThinking(
 
   // Clean up extra whitespace but preserve paragraph structure
   result = result.replace(/\n\s*\n\s*\n/g, "\n\n"); // Multiple newlines to double newlines
-  result = result.trim();
+  // Removed final trim() to prevent stripping leading characters of the actual response content.
 
   return result;
 }
@@ -1822,11 +1822,44 @@ async function processUpstreamStream(
                   thinkingSent = true;
                 }
               } else {
-                // For other modes, we're now streaming incrementally via delta_content
-                // So we skip edit_content to avoid duplication
-                debugLog("Skipping edit_content as we're streaming incrementally via delta_content");
-                thinkingSent = true; // Mark as sent to avoid processing it again
+                // For non-'separate' modes, edit_content contains the full thinking block + first response character.
+                // We rely on incremental streaming for thinking content, but need to stream the closing tag and the trailing content ('H').
+                
+                let contentAfterThinking = "";
+                const parts = upstreamData.data.edit_content.split("</details>");
+                
+                if (parts.length > 1) {
+                    contentAfterThinking = parts.slice(1).join("</details>");
+                }
+
+                // 1. Stream closing tag if one was opened incrementally
+                if (inThinkingPhase && thinkingTagOpened) {
+                    let closingTag = "";
+                    switch (thinkTagsMode) {
+                        case "thinking": closingTag = "</thinking>"; break;
+                        case "think": closingTag = "</think>"; break;
+                    }
+                    
+                    if (closingTag) {
+                        debugLog("Sending closing thinking tag from edit_content handler: %s", closingTag);
+                        const chunk: OpenAIResponse = { id: `chatcmpl-${Date.now()}`, object: "chat.completion.chunk", created: Math.floor(Date.now() / 1000), model: modelName, choices: [{ index: 0, delta: { content: closingTag } }] };
+                        await writer.write(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
+                    }
+                }
+
+                // 2. Stream the content that followed the thinking block ('H')
+                if (contentAfterThinking) {
+                    debugLog("Streaming content after thinking block: %s", contentAfterThinking.substring(0, 20));
+                    const chunk: OpenAIResponse = { id: `chatcmpl-${Date.now()}`, object: "chat.completion.chunk", created: Math.floor(Date.now() / 1000), model: modelName, choices: [{ index: 0, delta: { content: contentAfterThinking } }] };
+                    await writer.write(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
+                }
+
+                thinkingSent = true; // Mark as sent to prevent further processing of this block type
               }
+              
+              // Reset thinking state after processing the complete thinking block in edit_content
+              inThinkingPhase = false;
+              thinkingTagOpened = false;
             }
 
             // Handle content
