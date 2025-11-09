@@ -104,8 +104,7 @@ export async function handleChatCompletions(request: Request): Promise<Response>
   // Get authentication token
   let authToken: string;
   try {
-    const tokenResponse = await getAnonymousToken();
-    authToken = tokenResponse.token;
+    authToken = await getAnonymousToken();
   } catch (error) {
     debugLog("Failed to get anonymous token: %v", error);
     return new Response("Failed to get authentication token", {

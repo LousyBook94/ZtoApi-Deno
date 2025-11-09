@@ -172,7 +172,7 @@ export async function handleAnthropicMessages(request: Request): Promise<Respons
   // Convert to OpenAI format for processing
   const model = anthropicReq.model || "claude-3-haiku-20240307";
   const modelConfig = getModelConfig(model);
-  const openaiReq = convertAnthropicToOpenAI(anthropicReq, modelConfig);
+  const openaiReq = convertAnthropicToOpenAI(anthropicReq);
 
   debugLog("Converted to OpenAI format, model: %s", openaiReq.model);
 
@@ -182,8 +182,7 @@ export async function handleAnthropicMessages(request: Request): Promise<Respons
   // Get token for upstream request
   let authToken: string;
   try {
-    const tokenResponse = await getAnonymousToken();
-    authToken = tokenResponse.token;
+    authToken = await getAnonymousToken();
   } catch (error) {
     debugLog("Failed to get anonymous token: %v", error);
     return new Response(

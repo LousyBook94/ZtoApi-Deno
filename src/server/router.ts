@@ -3,7 +3,8 @@
  * Handles HTTP request routing and server startup
  */
 
-import { SUPPORTED_MODELS, UPSTREAM_URL } from "../config/constants.ts";
+import { SUPPORTED_MODELS } from "../config/models.ts";
+import { UPSTREAM_URL } from "../config/constants.ts";
 import { addLiveRequest, recordRequestStats } from "../utils/stats.ts";
 import {
   handleAnthropicMessages,

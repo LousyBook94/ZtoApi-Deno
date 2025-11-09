@@ -23,7 +23,7 @@ export async function getIndexHTML(): Promise<string> {
 /**
  * Handle index request
  */
-export async function handleIndex(request: Request): Promise<Response> {
+export async function handleIndex(_request: Request): Promise<Response> {
   const html = await getIndexHTML();
 
   return new Response(html, {
