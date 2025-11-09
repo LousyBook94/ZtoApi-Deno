@@ -6,14 +6,8 @@
 import { SUPPORTED_MODELS } from "../config/models.ts";
 import { UPSTREAM_URL } from "../config/constants.ts";
 import { addLiveRequest, recordRequestStats } from "../utils/stats.ts";
-import {
-  handleAnthropicMessages,
-  handleAnthropicModels,
-  handleAnthropicNonStreamResponse,
-  handleAnthropicStreamResponse,
-  handleAnthropicTokenCount,
-} from "../handlers/anthropic.ts";
-import { handleChatCompletions, handleNonStreamResponse, handleStreamResponse } from "../handlers/openai.ts";
+import { handleAnthropicMessages, handleAnthropicModels, handleAnthropicTokenCount } from "../handlers/anthropic.ts";
+import { handleChatCompletions } from "../handlers/openai.ts";
 import {
   handleDashboard,
   handleDashboardRequests,

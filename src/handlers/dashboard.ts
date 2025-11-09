@@ -83,7 +83,7 @@ export function handleModels(request: Request): Response {
  */
 export async function getDashboardHTML(): Promise<string> {
   try {
-    const html = await Deno.readTextFile(`${Deno.cwd()}/ui/dashboard.html`);
+    const html = await Deno.readTextFile(`${Deno.cwd()}/ui/dashboard/dashboard.html`);
     return html;
   } catch (error) {
     console.error("Failed to read dashboard.html:", error);
@@ -117,7 +117,7 @@ export async function getDashboardHTML(): Promise<string> {
 /**
  * Handle dashboard request
  */
-export async function handleDashboard(request: Request): Promise<Response> {
+export async function handleDashboard(_request: Request): Promise<Response> {
   const html = await getDashboardHTML();
 
   return new Response(html, {
@@ -165,7 +165,7 @@ export function handleDashboardRequests(_request: Request): Response {
  */
 export async function getDocsHTML(): Promise<string> {
   try {
-    return await Deno.readTextFile(`${Deno.cwd()}/ui/docs.html`);
+    return await Deno.readTextFile(`${Deno.cwd()}/ui/docs/docs.html`);
   } catch (error) {
     console.error("Failed to read docs.html:", error);
     return `
@@ -203,7 +203,7 @@ export async function getDocsHTML(): Promise<string> {
 /**
  * Handle docs request
  */
-export async function handleDocs(request: Request): Promise<Response> {
+export async function handleDocs(_request: Request): Promise<Response> {
   const html = await getDocsHTML();
 
   return new Response(html, {
@@ -222,7 +222,8 @@ export async function handleStatic(request: Request): Promise<Response> {
   const path = url.pathname;
 
   // Simple static file handler for UI assets
-  const filePath = `${Deno.cwd()}/ui${path}`;
+  // path is like "/ui/index.css", we need to convert to filesystem path
+  const filePath = `${Deno.cwd()}${path}`;
 
   try {
     const content = await Deno.readTextFile(filePath);
@@ -234,7 +235,7 @@ export async function handleStatic(request: Request): Promise<Response> {
         "Content-Type": contentType,
       },
     });
-  } catch (error) {
+  } catch (_error) {
     return new Response("Not Found", {
       status: 404,
     });
