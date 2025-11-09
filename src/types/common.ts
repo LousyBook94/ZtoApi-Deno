@@ -25,6 +25,7 @@ export interface LiveRequest {
   duration: number;
   timestamp: Date;
   userAgent: string;
+  model?: string;
 }
 
 /**

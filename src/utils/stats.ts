@@ -23,7 +23,7 @@ export function recordRequestStats(startTime: number, _path: string, status: num
   const duration = Date.now() - startTime;
 
   stats.totalRequests++;
-  if (status >= 200 && status < 400) {
+  if (status >= 200 && status < 300) {
     stats.successfulRequests++;
   } else {
     stats.failedRequests++;
@@ -43,22 +43,24 @@ export function addLiveRequest(
   status: number,
   duration: number,
   userAgent: string,
+  model?: string,
 ): void {
   const request: LiveRequest = {
-    id: `${Date.now()}-${Math.random().toString(36).substring(7)}`,
+    id: Date.now().toString(),
+    timestamp: new Date(),
     method,
     path,
     status,
     duration,
-    timestamp: new Date(),
     userAgent,
+    model,
   };
 
-  liveRequests.unshift(request);
+  liveRequests.push(request);
 
   // Keep only last 100 requests
   if (liveRequests.length > 100) {
-    liveRequests = liveRequests.slice(0, 100);
+    liveRequests = liveRequests.slice(1);
   }
 }
 
@@ -71,10 +73,11 @@ export function recordAndTrackRequest(
   pathname: string,
   status: number,
   userAgent: string,
+  model?: string,
 ): void {
   const duration = Date.now() - startTime;
   recordRequestStats(startTime, pathname, status);
-  addLiveRequest(method, pathname, status, duration, userAgent);
+  addLiveRequest(method, pathname, status, duration, userAgent, model);
 }
 
 /**

@@ -11,7 +11,6 @@ import { generateSignature } from "./signature.ts";
 import { SmartHeaderGenerator } from "./header-generator.ts";
 import { ImageProcessor } from "./image-processor.ts";
 import type { UpstreamRequest } from "../types/upstream.ts";
-import type { TokenPool } from "./token-pool.ts";
 
 /**
  * Call upstream API with proper headers and signature
@@ -20,7 +19,6 @@ export async function callUpstreamWithHeaders(
   upstreamReq: UpstreamRequest,
   refererChatID: string,
   authToken: string,
-  tokenPool: TokenPool,
 ): Promise<Response> {
   try {
     logger.debug("Call upstream API: %s", UPSTREAM_URL);
@@ -128,25 +126,9 @@ export async function callUpstreamWithHeaders(
 
     logger.debug("Upstream response status: %d %s", response.status, response.statusText);
 
-    // 8. Mark token as valid on success
-    tokenPool.markSuccess(authToken);
-
     return response;
   } catch (error) {
     logger.error("Failed to call upstream: %v", error);
-
-    // Try switching token on failure
-    try {
-      const newToken = tokenPool.switchToNext();
-      if (newToken) {
-        logger.debug("Switch to new token retry: %s", newToken.substring(0, 20));
-        // Retry recursively once, avoid infinite loop
-        return callUpstreamWithHeaders(upstreamReq, refererChatID, newToken, tokenPool);
-      }
-    } catch (retryError) {
-      logger.error("Token switch retry failed: %v", retryError);
-    }
-
     throw error;
   }
 }

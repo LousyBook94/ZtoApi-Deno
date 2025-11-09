@@ -6,6 +6,7 @@
 import { CONFIG, ZAI_TOKEN } from "../config/constants.ts";
 import { logger } from "../utils/logger.ts";
 import type { TokenInfo } from "../types/common.ts";
+import { getAnonymousToken } from "./anonymous-token.ts";
 
 export class TokenPool {
   private tokens: TokenInfo[] = [];
@@ -13,7 +14,7 @@ export class TokenPool {
   private anonymousToken: string | null = null;
   private anonymousTokenExpiry: number = 0;
 
-  constructor(private getAnonymousTokenFn: () => Promise<string>) {
+  constructor() {
     this.initializeTokens();
   }
 
@@ -133,7 +134,7 @@ export class TokenPool {
     }
 
     try {
-      this.anonymousToken = await this.getAnonymousTokenFn();
+      this.anonymousToken = await getAnonymousToken();
       this.anonymousTokenExpiry = now + CONFIG.ANONYMOUS_TOKEN_TTL_MS;
       logger.debug("Anonymous token obtained and cached");
       return this.anonymousToken;
