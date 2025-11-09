@@ -13,7 +13,7 @@ import { getLiveRequestsData, getStatsData } from "../utils/stats.ts";
  */
 export async function getIndexHTML(): Promise<string> {
   try {
-    return await Deno.readTextFile("./ui/index.html");
+    return await Deno.readTextFile(`${Deno.cwd()}/ui/index.html`);
   } catch (error) {
     console.error("Failed to read index.html:", error);
     return "<h1>UI files not found. Please ensure ui folder exists.</h1>";
@@ -83,7 +83,7 @@ export function handleModels(request: Request): Response {
  */
 export async function getDashboardHTML(): Promise<string> {
   try {
-    const html = await Deno.readTextFile("./ui/dashboard.html");
+    const html = await Deno.readTextFile(`${Deno.cwd()}/ui/dashboard.html`);
     return html;
   } catch (error) {
     console.error("Failed to read dashboard.html:", error);
@@ -165,7 +165,7 @@ export function handleDashboardRequests(_request: Request): Response {
  */
 export async function getDocsHTML(): Promise<string> {
   try {
-    return await Deno.readTextFile("./ui/docs.html");
+    return await Deno.readTextFile(`${Deno.cwd()}/ui/docs.html`);
   } catch (error) {
     console.error("Failed to read docs.html:", error);
     return `
@@ -222,7 +222,7 @@ export async function handleStatic(request: Request): Promise<Response> {
   const path = url.pathname;
 
   // Simple static file handler for UI assets
-  const filePath = `./ui${path}`;
+  const filePath = `${Deno.cwd()}/ui${path}`;
 
   try {
     const content = await Deno.readTextFile(filePath);
