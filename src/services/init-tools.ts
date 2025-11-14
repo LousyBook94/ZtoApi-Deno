@@ -84,7 +84,7 @@ async function fetchUrl(args: { url: string }): Promise<string> {
         "User-Agent": "ZtoApi-Native-Tool/1.0",
       },
       // Add timeout to prevent hanging
-      signal: AbortSignal.timeout(10000), // 10 second timeout
+      signal: AbortSignal.timeout(60000), // 1 minute timeout
     });
 
     if (!response.ok) {
