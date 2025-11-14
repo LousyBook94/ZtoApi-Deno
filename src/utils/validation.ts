@@ -257,9 +257,9 @@ function validateToolParameters(
  * @throws Error if validation fails
  */
 export function validateTools(
-  tools?: Tool[], 
-  toolArguments?: Record<string, unknown>[], 
-  allowUpstreamTools: boolean = true
+  tools?: Tool[],
+  toolArguments?: Record<string, unknown>[],
+  allowUpstreamTools: boolean = true,
 ): void {
   if (!tools || tools.length === 0) {
     return;
@@ -277,7 +277,7 @@ export function validateTools(
     }
 
     const toolName = tool.function.name;
-    
+
     // Check if tool is native
     if (hasTool(toolName)) {
       // Validate parameters schema if provided for native tools
@@ -302,7 +302,7 @@ export function validateTools(
       if (allowUpstreamTools) {
         // Allow upstream tools to pass through with basic validation
         debugLog("🔄 Allowing upstream tool to pass through: %s", toolName);
-        
+
         // Basic structure validation for upstream tools
         if (tool.function.parameters) {
           if (typeof tool.function.parameters !== "object" || tool.function.parameters === null) {

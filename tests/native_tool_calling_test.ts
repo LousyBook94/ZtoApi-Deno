@@ -354,7 +354,7 @@ Deno.test("Tool Validation - Unknown tool names", () => {
   ];
 
   assertThrows(
-    () => validateTools(tools),
+    () => validateTools(tools, undefined, false), // Use strict validation for this test
     Error,
     "Tool not found: unknown_tool. No tools are currently registered.",
   );
