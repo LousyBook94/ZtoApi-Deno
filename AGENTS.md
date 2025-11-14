@@ -6,26 +6,31 @@ This file provides essential information for agents working on the ZtoApi codeba
 
 ### Running the Application
 
-- **Start the server**: `deno run --allow-net --allow-env --allow-read main.ts`
-- **Development mode (with watch)**: `deno run --allow-net --allow-env --allow-read --watch main.ts`
+- **Start the server**: `deno task start`
+- **Development mode (with watch)**: `deno task dev`
 - **Test Anthropic integration**: `deno run --allow-net test_anthropic.ts`
 
 ### Testing
 
-- **Run all tests**: `deno test --allow-net --allow-env --allow-read`
-- **Run a single test file**: `deno test main_test.ts` (or specify any test file)
-- **Test native tool calling**: `deno test native_tool_calling_test.ts`
-- **Check TypeScript types**: `deno check main.ts anthropic.ts`
+- **Run all tests**: `deno task test`
+- **Run quick tests**: `deno task test:quick`
+- **Run verbose tests**: `deno task test:verbose`
+- **Run unit tests only**: `deno task test:unit`
+- **Run integration tests only**: `deno task test:integration`
+- **Run smoke tests only**: `deno task test:smoke`
+- **Check TypeScript types**: `deno task check`
 
 ### Linting and Code Quality
 
-- **Lint the code**: `deno lint`
-- **Format code**: `deno fmt` (Deno's built-in formatter)
+- **Lint the code**: `deno task lint`
+- **Format code**: `deno task fmt`
+- **Check formatting**: `deno task fmt:check`
 
 ### Notes
 
 - All commands require network, environment, and read permissions as the app interacts with external APIs and reads configuration.
-- For running a single test, use `deno test <file_path>` where `<file_path>` is the path to the specific test file (e.g., `main_test.ts`).
+- For running a single test file, use `deno test <file_path>` where `<file_path>` is the path to the specific test file (e.g., `main_test.ts`).
+- Use `deno task test` for comprehensive testing including unit and integration tests.
 
 ## Code Style Guidelines
 
@@ -40,7 +45,7 @@ This file provides essential information for agents working on the ZtoApi codeba
 - **Indentation**: Use 2 spaces (Deno default).
 - **Line endings**: Unix-style (LF).
 - **File encoding**: UTF-8.
-- **Semicolons**: Optional, but consistent (prefer no semicolons where possible).
+- **Semicolons**: Required (configured in deno.json).
 - **Quotes**: Use double quotes for strings.
 
 ### Naming Conventions
@@ -228,6 +233,6 @@ ZtoApi is a Deno-based API proxy server that provides OpenAI and Anthropic Claud
 
 - Update this file whenever system or design changes occur (e.g., new endpoints, config options, or architectural shifts).
 - Ensure all new code adheres to the style guidelines above.
-- Run tests and linting before commits to maintain code quality.
+- Run `deno task test` and `deno task lint` before commits to maintain code quality.
 - When adding new tools, update `src/services/init-tools.ts` and test with `native_tool_calling_test.ts`.
 - Tool registry is initialized automatically on server startup via `src/server/router.ts`.
