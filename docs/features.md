@@ -2,6 +2,187 @@
 
 Advanced features and configuration options for ZtoApi.
 
+## 🛠️ Native Tool Calling System
+
+ZtoApi includes a comprehensive native tool calling system that allows AI models to execute predefined server-side functions. This enables richer interactions beyond text generation.
+
+### Built-in Tools
+
+The following tools are available by default:
+
+#### `get_current_time`
+Returns the current UTC time in ISO 8601 format.
+
+**Usage Example:**
+```json
+{
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "get_current_time",
+        "description": "Get current UTC time"
+      }
+    }
+  ]
+}
+```
+
+#### `fetch_url`
+Fetches content from URLs (supports text and JSON responses).
+
+**Parameters:**
+- `url` (string, required) - URL to fetch
+- `format` (string, optional) - Response format ("text" or "json")
+
+**Usage Example:**
+```json
+{
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "fetch_url",
+        "description": "Fetch content from a URL",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {"type": "string", "description": "URL to fetch"},
+            "format": {"type": "string", "enum": ["text", "json"]}
+          },
+          "required": ["url"]
+        }
+      }
+    }
+  ]
+}
+```
+
+#### `hash_string`
+Calculates SHA256 or SHA1 hashes of text.
+
+**Parameters:**
+- `text` (string, required) - Text to hash
+- `algorithm` (string, optional) - Hash algorithm ("sha256" or "sha1", default: "sha256")
+
+**Usage Example:**
+```json
+{
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "hash_string",
+        "description": "Calculate hash of a string",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "text": {"type": "string", "description": "Text to hash"},
+            "algorithm": {"type": "string", "enum": ["sha256", "sha1"]}
+          },
+          "required": ["text"]
+        }
+      }
+    }
+  ]
+}
+```
+
+#### `calculate_expression`
+Safely evaluates mathematical expressions.
+
+**Parameters:**
+- `expression` (string, required) - Mathematical expression to evaluate
+
+**Usage Example:**
+```json
+{
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "calculate_expression",
+        "description": "Safely evaluate mathematical expressions",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "expression": {"type": "string", "description": "Mathematical expression"}
+          },
+          "required": ["expression"]
+        }
+      }
+    }
+  ]
+}
+```
+
+### Tool Calling in Action
+
+**Complete Request Example:**
+```bash
+curl -X POST http://localhost:9090/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-api-key" \
+  -d '{
+    "model": "GLM-4.5",
+    "messages": [{"role": "user", "content": "What time is it and can you calculate 2+2?"}],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "get_current_time",
+          "description": "Get current UTC time"
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "calculate_expression",
+          "description": "Calculate mathematical expressions",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "expression": {"type": "string"}
+            },
+            "required": ["expression"]
+          }
+        }
+      }
+    ],
+    "tool_choice": "auto"
+  }'
+```
+
+### Adding Custom Tools
+
+You can easily add custom tools by registering them in `src/services/init-tools.ts`:
+
+```typescript
+import { registerTool } from "./tool-registry.ts";
+
+registerTool(
+  "custom_tool",
+  async function(args: { param: string }) {
+    return `Processed: ${args.param}`;
+  },
+  "Custom tool description",
+  {
+    type: "object",
+    properties: { param: { type: "string" } },
+    required: ["param"],
+  },
+);
+```
+
+### Security Features
+
+- **Whitelist-based registry**: Only registered tools can be executed
+- **Input validation**: All tool parameters are validated against schemas
+- **Sandboxed execution**: Tools run in a controlled environment
+- **Error handling**: Tool failures don't crash the server
+
+For complete documentation, see [Native Tool Calling](./native-tool-calling.md).
+
 ## 🎛️ Feature Control Headers
 
 You can control various model features using HTTP headers when making requests to the `/v1/chat/completions` endpoint. These headers override the default model capabilities.

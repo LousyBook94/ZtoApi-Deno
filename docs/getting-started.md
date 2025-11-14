@@ -66,4 +66,95 @@ curl -X POST http://localhost:9090/anthropic/v1/messages \
 -d '{"model":"claude-3-5-sonnet-20241022","max_tokens":100,"messages":[{"role":"user","content":"Hello Claude!"}]}'
 ```
 
+## 🛠️ Getting Started with Tool Calling
+
+ZtoApi includes native tool calling support that allows AI models to execute server-side functions. Here's how to get started:
+
+### Basic Tool Calling Example
+
+```bash
+curl -X POST http://localhost:9090/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-your-local-key" \
+  -d '{
+    "model": "GLM-4.5",
+    "messages": [{"role": "user", "content": "What time is it?"}],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "get_current_time",
+          "description": "Get current UTC time"
+        }
+      }
+    ],
+    "tool_choice": "auto"
+  }'
+```
+
+### Available Built-in Tools
+
+- **`get_current_time`** - Returns current UTC time
+- **`fetch_url`** - Fetches content from URLs (text/JSON)
+- **`hash_string`** - Calculates SHA256/SHA1 hashes
+- **`calculate_expression`** - Safely evaluates math expressions
+
+### Python Example
+
+```python
+import openai
+
+client = openai.OpenAI(
+    api_key="sk-your-local-key",
+    base_url="http://localhost:9090/v1"
+)
+
+response = client.chat.completions.create(
+    model="GLM-4.5",
+    messages=[{"role": "user", "content": "Calculate 2+2"}],
+    tools=[
+        {
+            "type": "function",
+            "function": {
+                "name": "calculate_expression",
+                "description": "Calculate mathematical expressions",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "expression": {"type": "string"}
+                    },
+                    "required": ["expression"]
+                }
+            }
+        }
+    ],
+    tool_choice="auto"
+)
+
+print(response.choices[0].message.content)
+```
+
+### Adding Custom Tools
+
+You can add custom tools by modifying `src/services/init-tools.ts`:
+
+```typescript
+import { registerTool } from "./tool-registry.ts";
+
+registerTool(
+  "my_custom_tool",
+  async function(args: { message: string }) {
+    return `Echo: ${args.message}`;
+  },
+  "Echoes back the message",
+  {
+    type: "object",
+    properties: { message: { type: "string" } },
+    required: ["message"],
+  },
+);
+```
+
+For complete documentation, see [Native Tool Calling](./native-tool-calling.md).
+
 For more examples, see [Examples](../docs/examples.md).
