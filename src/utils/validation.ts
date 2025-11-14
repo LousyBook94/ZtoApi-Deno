@@ -195,16 +195,63 @@ export function processMessages(messages: Message[], modelConfig: ModelConfig): 
 }
 
 /**
- * Validate tools array in request
- * @param tools Tools array from request
+ * Validate tool parameters against schema
+ * @param toolName Name of the tool
+ * @param parameters Parameters to validate
+ * @param schema JSON schema to validate against
  * @throws Error if validation fails
  */
-export function validateTools(tools?: Tool[]): void {
+function validateToolParameters(toolName: string, parameters: unknown, schema: { type: string; properties?: Record<string, unknown>; required?: string[] }): void {
+  if (schema.type !== "object") {
+    return; // Only validate object schemas
+  }
+
+  if (typeof parameters !== "object" || parameters === null) {
+    if (schema.required && schema.required.length > 0) {
+      throw new Error(`Tool '${toolName}' requires an object with parameters, but received: ${typeof parameters}`);
+    }
+    return;
+  }
+
+  const params = parameters as Record<string, unknown>;
+  const required = schema.required || [];
+  const properties = schema.properties || {};
+
+  // Check required parameters
+  for (const requiredParam of required) {
+    if (!(requiredParam in params)) {
+      throw new Error(`Tool '${toolName}' is missing required parameter: '${requiredParam}'. Required parameters: ${required.join(", ")}`);
+    }
+  }
+
+  // Check parameter types
+  for (const [paramName, paramValue] of Object.entries(params)) {
+    const paramSchema = properties[paramName];
+    if (!paramSchema || typeof paramSchema !== "object") {
+      continue; // Skip validation for unknown parameters
+    }
+
+    const paramType = (paramSchema as { type?: string }).type;
+    if (paramType && typeof paramValue !== paramType) {
+      throw new Error(`Tool '${toolName}' parameter '${paramName}' must be of type ${paramType}, but received ${typeof paramValue}`);
+    }
+  }
+}
+
+/**
+ * Validate tools array in request
+ * @param tools Tools array from request
+ * @param toolArguments Optional tool arguments to validate
+ * @throws Error if validation fails
+ */
+export function validateTools(tools?: Tool[], toolArguments?: Record<string, unknown>[]): void {
   if (!tools || tools.length === 0) {
     return;
   }
 
-  for (const tool of tools) {
+  for (let i = 0; i < tools.length; i++) {
+    const tool = tools[i];
+    
     if (tool.type !== "function") {
       throw new Error(`Unsupported tool type: ${tool.type}. Only 'function' type is supported.`);
     }
@@ -215,13 +262,22 @@ export function validateTools(tools?: Tool[]): void {
 
     const toolName = tool.function.name;
     if (!hasTool(toolName)) {
-      throw new Error(`Tool not found: ${toolName}. Available tools: ${getAvailableToolNames().join(", ")}`);
+      const availableTools = getAvailableToolNames();
+      if (availableTools.length === 0) {
+        throw new Error(`Tool not found: ${toolName}. No tools are currently registered.`);
+      }
+      throw new Error(`Tool not found: ${toolName}. Available tools: ${availableTools.join(", ")}`);
     }
 
     // Validate parameters schema if provided
     if (tool.function.parameters) {
       if (typeof tool.function.parameters !== "object" || tool.function.parameters === null) {
         throw new Error(`Tool parameters must be a valid JSON schema object for tool: ${toolName}`);
+      }
+
+      // Validate tool arguments if provided
+      if (toolArguments && toolArguments[i]) {
+        validateToolParameters(toolName, toolArguments[i], tool.function.parameters as { type: string; properties?: Record<string, unknown>; required?: string[] });
       }
     }
 

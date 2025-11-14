@@ -14,12 +14,69 @@ function getCurrentTime(_args: unknown): string {
 }
 
 /**
- * Fetch URL tool
+ * Validate URL for security (prevent SSRF attacks)
+ */
+function validateUrl(url: string): void {
+  try {
+    const parsedUrl = new URL(url);
+    
+    // Block non-HTTP/HTTPS protocols
+    if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+      throw new Error(`Unsupported protocol: ${parsedUrl.protocol}. Only HTTP and HTTPS are allowed.`);
+    }
+    
+    // Block localhost and private IP ranges
+    const hostname = parsedUrl.hostname.toLowerCase();
+    
+    // Block localhost variants
+    const localhostPatterns = ["localhost", "127.0.0.1", "0.0.0.0", "::1"];
+    if (localhostPatterns.includes(hostname) || hostname.startsWith("127.") || hostname.startsWith("0.")) {
+      throw new Error("Access to localhost is not allowed for security reasons.");
+    }
+    
+    // Block private IP ranges
+    const privateRanges = [
+      /^10\./,
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
+      /^192\.168\./,
+      /^169\.254\./, // Link-local
+      /^fc00:/, // IPv6 private
+      /^fe80:/, // IPv6 link-local
+    ];
+    
+    for (const range of privateRanges) {
+      if (range.test(hostname)) {
+        throw new Error(`Access to private IP range ${hostname} is not allowed for security reasons.`);
+      }
+    }
+    
+    // Block internal hostnames
+    const internalPatterns = ["internal", "intranet", "local", "dev", "test"];
+    if (internalPatterns.some(pattern => hostname.includes(pattern))) {
+      throw new Error(`Access to internal hostname ${hostname} is not allowed for security reasons.`);
+    }
+    
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Unsupported protocol")) {
+      throw error;
+    }
+    if (error instanceof Error && (error.message.includes("not allowed") || error.message.includes("security"))) {
+      throw error;
+    }
+    throw new Error(`Invalid URL format: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+/**
+ * Fetch URL tool with security validation
  */
 async function fetchUrl(args: { url: string }): Promise<string> {
   if (!args || typeof args.url !== "string") {
     throw new Error("URL parameter is required and must be a string");
   }
+
+  // Validate URL for security
+  validateUrl(args.url);
 
   try {
     const response = await fetch(args.url, {
@@ -27,6 +84,8 @@ async function fetchUrl(args: { url: string }): Promise<string> {
       headers: {
         "User-Agent": "ZtoApi-Native-Tool/1.0",
       },
+      // Add timeout to prevent hanging
+      signal: AbortSignal.timeout(10000), // 10 second timeout
     });
 
     if (!response.ok) {
@@ -43,6 +102,9 @@ async function fetchUrl(args: { url: string }): Promise<string> {
       return text.length > 10000 ? text.substring(0, 10000) + "..." : text;
     }
   } catch (error) {
+    if (error instanceof Error && error.name === "TimeoutError") {
+      throw new Error(`Request timeout: URL took too long to respond`);
+    }
     logger.error("Failed to fetch URL %s: %v", args.url, error);
     throw new Error(`Failed to fetch URL: ${error instanceof Error ? error.message : String(error)}`);
   }
