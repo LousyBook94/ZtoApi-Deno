@@ -31,6 +31,7 @@ This file provides essential information for agents working on the ZtoApi codeba
 - All commands require network, environment, and read permissions as the app interacts with external APIs and reads configuration.
 - For running a single test file, use `deno test <file_path>` where `<file_path>` is the path to the specific test file (e.g., `main_test.ts`).
 - Use `deno task test` for comprehensive testing including unit and integration tests.
+- **IMPORTANT**: Always run `deno task test` before completing any work to ensure all tests pass and code quality is maintained.
 
 ## Code Style Guidelines
 

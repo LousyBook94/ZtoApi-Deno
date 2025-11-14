@@ -356,7 +356,7 @@ Deno.test("Tool Validation - Unknown tool names", () => {
   assertThrows(
     () => validateTools(tools),
     Error,
-    "Tool not found: unknown_tool. Available tools: No tools are currently registered.",
+    "Tool not found: unknown_tool. No tools are currently registered.",
   );
 });
 
@@ -416,7 +416,8 @@ Deno.test("Tool Call Detection - Malformed tool calls", () => {
   const malformedXmlData: UpstreamData = {
     type: "content",
     data: {
-      delta_content: '<function_calls>\n<invoke name="test_tool">\n<parameter name="message">hello</parameter>\n</invoke>',
+      delta_content:
+        '<function_calls>\n<invoke name="test_tool">\n<parameter name="message">hello</parameter>\n</invoke>',
       phase: "content",
       done: false,
     },
@@ -444,7 +445,7 @@ Deno.test("Tool Execution - Error handling", async () => {
 
   registerTool(
     "error_tool",
-    (...args: unknown[]) => {
+    (..._args: unknown[]) => {
       throw new Error("Test error");
     },
     "A tool that always throws an error",
@@ -489,7 +490,7 @@ Deno.test("calculate_expression Security - Block dangerous expressions", async (
   );
 });
 
-Deno.test("Streaming Tool Calls - Partial chunk handling", async () => {
+Deno.test("Streaming Tool Calls - Partial chunk handling", () => {
   clearTools();
   initializeBuiltinTools();
 
@@ -502,7 +503,7 @@ Deno.test("Streaming Tool Calls - Partial chunk handling", async () => {
   let toolCallBuffer = "";
   for (const chunk of partialChunks) {
     toolCallBuffer += chunk;
-    
+
     const mockUpstreamData: UpstreamData = {
       type: "content",
       data: {
@@ -523,13 +524,13 @@ Deno.test("Streaming Tool Calls - Partial chunk handling", async () => {
   const xmlChunks = [
     '<function_calls>\n<invoke name="hash_string">',
     '\n<parameter name="text">test</parameter>',
-    '\n</invoke>\n</function_calls>',
+    "\n</invoke>\n</function_calls>",
   ];
 
   toolCallBuffer = "";
   for (const chunk of xmlChunks) {
     toolCallBuffer += chunk;
-    
+
     const mockUpstreamData: UpstreamData = {
       type: "content",
       data: {
@@ -548,14 +549,14 @@ Deno.test("Streaming Tool Calls - Partial chunk handling", async () => {
 
   // Test partial simple function call
   const simpleChunks = [
-    'function_call: calculate_expression(',
+    "function_call: calculate_expression(",
     '"2 + 2")',
   ];
 
   toolCallBuffer = "";
   for (const chunk of simpleChunks) {
     toolCallBuffer += chunk;
-    
+
     const mockUpstreamData: UpstreamData = {
       type: "content",
       data: {
@@ -583,7 +584,7 @@ Deno.test("Streaming Tool Calls - Malformed partial chunks", () => {
   let toolCallBuffer = "";
   for (const chunk of malformedJsonChunks) {
     toolCallBuffer += chunk;
-    
+
     const mockUpstreamData: UpstreamData = {
       type: "content",
       data: {
@@ -606,7 +607,7 @@ Deno.test("Streaming Tool Calls - Malformed partial chunks", () => {
   toolCallBuffer = "";
   for (const chunk of malformedXmlChunks) {
     toolCallBuffer += chunk;
-    
+
     const mockUpstreamData: UpstreamData = {
       type: "content",
       data: {

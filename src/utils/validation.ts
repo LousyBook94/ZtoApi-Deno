@@ -201,7 +201,11 @@ export function processMessages(messages: Message[], modelConfig: ModelConfig): 
  * @param schema JSON schema to validate against
  * @throws Error if validation fails
  */
-function validateToolParameters(toolName: string, parameters: unknown, schema: { type: string; properties?: Record<string, unknown>; required?: string[] }): void {
+function validateToolParameters(
+  toolName: string,
+  parameters: unknown,
+  schema: { type: string; properties?: Record<string, unknown>; required?: string[] },
+): void {
   if (schema.type !== "object") {
     return; // Only validate object schemas
   }
@@ -220,7 +224,11 @@ function validateToolParameters(toolName: string, parameters: unknown, schema: {
   // Check required parameters
   for (const requiredParam of required) {
     if (!(requiredParam in params)) {
-      throw new Error(`Tool '${toolName}' is missing required parameter: '${requiredParam}'. Required parameters: ${required.join(", ")}`);
+      throw new Error(
+        `Tool '${toolName}' is missing required parameter: '${requiredParam}'. Required parameters: ${
+          required.join(", ")
+        }`,
+      );
     }
   }
 
@@ -233,7 +241,9 @@ function validateToolParameters(toolName: string, parameters: unknown, schema: {
 
     const paramType = (paramSchema as { type?: string }).type;
     if (paramType && typeof paramValue !== paramType) {
-      throw new Error(`Tool '${toolName}' parameter '${paramName}' must be of type ${paramType}, but received ${typeof paramValue}`);
+      throw new Error(
+        `Tool '${toolName}' parameter '${paramName}' must be of type ${paramType}, but received ${typeof paramValue}`,
+      );
     }
   }
 }
@@ -251,7 +261,7 @@ export function validateTools(tools?: Tool[], toolArguments?: Record<string, unk
 
   for (let i = 0; i < tools.length; i++) {
     const tool = tools[i];
-    
+
     if (tool.type !== "function") {
       throw new Error(`Unsupported tool type: ${tool.type}. Only 'function' type is supported.`);
     }
@@ -277,7 +287,11 @@ export function validateTools(tools?: Tool[], toolArguments?: Record<string, unk
 
       // Validate tool arguments if provided
       if (toolArguments && toolArguments[i]) {
-        validateToolParameters(toolName, toolArguments[i], tool.function.parameters as { type: string; properties?: Record<string, unknown>; required?: string[] });
+        validateToolParameters(
+          toolName,
+          toolArguments[i],
+          tool.function.parameters as { type: string; properties?: Record<string, unknown>; required?: string[] },
+        );
       }
     }
 

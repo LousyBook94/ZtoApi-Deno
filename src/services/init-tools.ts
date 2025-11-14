@@ -19,21 +19,21 @@ function getCurrentTime(_args: unknown): string {
 function validateUrl(url: string): void {
   try {
     const parsedUrl = new URL(url);
-    
+
     // Block non-HTTP/HTTPS protocols
     if (!["http:", "https:"].includes(parsedUrl.protocol)) {
       throw new Error(`Unsupported protocol: ${parsedUrl.protocol}. Only HTTP and HTTPS are allowed.`);
     }
-    
+
     // Block localhost and private IP ranges
     const hostname = parsedUrl.hostname.toLowerCase();
-    
+
     // Block localhost variants
     const localhostPatterns = ["localhost", "127.0.0.1", "0.0.0.0", "::1"];
     if (localhostPatterns.includes(hostname) || hostname.startsWith("127.") || hostname.startsWith("0.")) {
       throw new Error("Access to localhost is not allowed for security reasons.");
     }
-    
+
     // Block private IP ranges
     const privateRanges = [
       /^10\./,
@@ -43,19 +43,18 @@ function validateUrl(url: string): void {
       /^fc00:/, // IPv6 private
       /^fe80:/, // IPv6 link-local
     ];
-    
+
     for (const range of privateRanges) {
       if (range.test(hostname)) {
         throw new Error(`Access to private IP range ${hostname} is not allowed for security reasons.`);
       }
     }
-    
+
     // Block internal hostnames
     const internalPatterns = ["internal", "intranet", "local", "dev", "test"];
-    if (internalPatterns.some(pattern => hostname.includes(pattern))) {
+    if (internalPatterns.some((pattern) => hostname.includes(pattern))) {
       throw new Error(`Access to internal hostname ${hostname} is not allowed for security reasons.`);
     }
-    
   } catch (error) {
     if (error instanceof Error && error.message.includes("Unsupported protocol")) {
       throw error;
