@@ -250,11 +250,17 @@ function validateToolParameters(
 
 /**
  * Validate tools array in request
+ * Enhanced to support both native and upstream tools
  * @param tools Tools array from request
  * @param toolArguments Optional tool arguments to validate
+ * @param allowUpstreamTools Whether to allow non-native tools to pass through (default: true)
  * @throws Error if validation fails
  */
-export function validateTools(tools?: Tool[], toolArguments?: Record<string, unknown>[]): void {
+export function validateTools(
+  tools?: Tool[],
+  toolArguments?: Record<string, unknown>[],
+  allowUpstreamTools: boolean = true,
+): void {
   if (!tools || tools.length === 0) {
     return;
   }
@@ -271,31 +277,47 @@ export function validateTools(tools?: Tool[], toolArguments?: Record<string, unk
     }
 
     const toolName = tool.function.name;
-    if (!hasTool(toolName)) {
-      const availableTools = getAvailableToolNames();
-      if (availableTools.length === 0) {
-        throw new Error(`Tool not found: ${toolName}. No tools are currently registered.`);
+
+    // Check if tool is native
+    if (hasTool(toolName)) {
+      // Validate parameters schema if provided for native tools
+      if (tool.function.parameters) {
+        if (typeof tool.function.parameters !== "object" || tool.function.parameters === null) {
+          throw new Error(`Tool parameters must be a valid JSON schema object for tool: ${toolName}`);
+        }
+
+        // Validate tool arguments if provided
+        if (toolArguments && toolArguments[i]) {
+          validateToolParameters(
+            toolName,
+            toolArguments[i],
+            tool.function.parameters as { type: string; properties?: Record<string, unknown>; required?: string[] },
+          );
+        }
       }
-      throw new Error(`Tool not found: ${toolName}. Available tools: ${availableTools.join(", ")}`);
+
+      debugLog("✅ Validated native tool: %s", toolName);
+    } else {
+      // This is not a native tool
+      if (allowUpstreamTools) {
+        // Allow upstream tools to pass through with basic validation
+        debugLog("🔄 Allowing upstream tool to pass through: %s", toolName);
+
+        // Basic structure validation for upstream tools
+        if (tool.function.parameters) {
+          if (typeof tool.function.parameters !== "object" || tool.function.parameters === null) {
+            throw new Error(`Tool parameters must be a valid JSON schema object for tool: ${toolName}`);
+          }
+        }
+      } else {
+        // Strict mode - fail on non-native tools
+        const availableTools = getAvailableToolNames();
+        if (availableTools.length === 0) {
+          throw new Error(`Tool not found: ${toolName}. No tools are currently registered.`);
+        }
+        throw new Error(`Tool not found: ${toolName}. Available tools: ${availableTools.join(", ")}`);
+      }
     }
-
-    // Validate parameters schema if provided
-    if (tool.function.parameters) {
-      if (typeof tool.function.parameters !== "object" || tool.function.parameters === null) {
-        throw new Error(`Tool parameters must be a valid JSON schema object for tool: ${toolName}`);
-      }
-
-      // Validate tool arguments if provided
-      if (toolArguments && toolArguments[i]) {
-        validateToolParameters(
-          toolName,
-          toolArguments[i],
-          tool.function.parameters as { type: string; properties?: Record<string, unknown>; required?: string[] },
-        );
-      }
-    }
-
-    debugLog("✅ Validated tool: %s", toolName);
   }
 }
 
