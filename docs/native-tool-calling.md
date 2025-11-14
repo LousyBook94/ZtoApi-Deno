@@ -13,11 +13,13 @@ Native tool calling allows the AI model to request execution of specific functio
 The following tools are available by default:
 
 #### `get_current_time`
+
 Returns the current UTC time in ISO 8601 format.
 
 **Parameters:** None
 
 **Example:**
+
 ```json
 {
   "name": "get_current_time",
@@ -28,12 +30,15 @@ Returns the current UTC time in ISO 8601 format.
 **Response:** `"2025-11-14T12:34:56.789Z"`
 
 #### `fetch_url`
+
 Fetches content from a URL. Supports both text and JSON responses.
 
 **Parameters:**
+
 - `url` (string, required): The URL to fetch content from
 
 **Example:**
+
 ```json
 {
   "name": "fetch_url",
@@ -46,13 +51,16 @@ Fetches content from a URL. Supports both text and JSON responses.
 **Response:** The fetched content as a string (JSON responses are formatted).
 
 #### `hash_string`
+
 Calculates the hash of a string using various algorithms.
 
 **Parameters:**
+
 - `text` (string, required): The text to hash
 - `algorithm` (string, optional): Hash algorithm - "sha256" (default) or "sha1"
 
 **Example:**
+
 ```json
 {
   "name": "hash_string",
@@ -66,12 +74,15 @@ Calculates the hash of a string using various algorithms.
 **Response:** `"b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"`
 
 #### `calculate_expression`
+
 Safely evaluates mathematical expressions.
 
 **Parameters:**
+
 - `expression` (string, required): Mathematical expression to evaluate
 
 **Example:**
+
 ```json
 {
   "name": "calculate_expression",
@@ -140,21 +151,23 @@ Include tools in your chat completion request:
 The system automatically detects tool calls in the AI's response using multiple formats:
 
 ### JSON Format
-```json
+
+````json
 ```json
 {"name": "get_current_time", "arguments": {}}
-```
-```
+````
 
+````
 ### XML Format
 ```xml
 <function_calls>
 <invoke name="get_current_time">
 </invoke>
 </function_calls>
-```
+````
 
 ### Simple Format
+
 ```
 function_call: get_current_time()
 ```
@@ -164,6 +177,7 @@ function_call: get_current_time()
 When a tool is executed, the response includes the tool call and result:
 
 ### OpenAI Response
+
 ```json
 {
   "id": "chatcmpl-123",
@@ -250,6 +264,7 @@ Tool execution errors are caught and returned as error messages:
 ```
 
 Common error scenarios:
+
 - Tool not found
 - Invalid parameters
 - Network failures (for fetch_url)
@@ -267,16 +282,19 @@ Tool calls are tracked and can be monitored:
 ## Examples
 
 ### Example 1: Getting Current Time
+
 **User:** "What time is it now?"
 
 **AI Response:** Automatically calls `get_current_time` and responds with the current time.
 
 ### Example 2: Web Content Analysis
+
 **User:** "Can you fetch and summarize the content from https://example.com?"
 
 **AI Response:** Uses `fetch_url` to get the content, then provides a summary.
 
 ### Example 3: Mathematical Calculations
+
 **User:** "What is 15% of 250?"
 
 **AI Response:** Uses `calculate_expression` with "250 * 0.15" and returns the result.
@@ -299,10 +317,13 @@ Tool calling can be controlled via:
 ## Troubleshooting
 
 ### Tool Not Found
+
 Ensure the tool is registered in `init-tools.ts` and the server has been restarted.
 
 ### Validation Errors
+
 Check that the tool parameters match the expected schema in the tool definition.
 
 ### Execution Failures
+
 Review server logs for detailed error messages and ensure all dependencies are available.

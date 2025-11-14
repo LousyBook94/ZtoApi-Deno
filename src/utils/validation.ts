@@ -4,7 +4,7 @@
  */
 
 import type { Message, ModelConfig, Tool } from "../types/definitions.ts";
-import { hasTool } from "../services/tool-registry.ts";
+import { getAllTools, hasTool } from "../services/tool-registry.ts";
 
 /**
  * Debug logging function - will be injected
@@ -234,6 +234,5 @@ export function validateTools(tools?: Tool[]): void {
  * @returns Array of tool names
  */
 export function getAvailableToolNames(): string[] {
-  const { getAllTools } = require("../services/tool-registry.ts");
   return getAllTools().map((tool: { name: string }) => tool.name);
 }

@@ -6,7 +6,7 @@
 
 import { logger } from "./logger.ts";
 import { detectToolCall, processToolCall } from "../services/tool-processor.ts";
-import type { UpstreamData, Usage, ToolCall } from "../types/definitions.ts";
+import type { ToolCall, UpstreamData, Usage } from "../types/definitions.ts";
 import type { OpenAIResponse } from "../types/openai.ts";
 
 // Thinking content handling mode:
@@ -491,7 +491,7 @@ export async function processStreamingResponse(
                 // Execute tool and send result
                 try {
                   const toolResult = await processToolCall(detectedToolCall);
-                  
+
                   // Send tool result
                   const toolResultChunk: OpenAIResponse = {
                     id: `chatcmpl-${Date.now()}`,

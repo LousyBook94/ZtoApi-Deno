@@ -11,9 +11,11 @@ ZtoApi includes a comprehensive native tool calling system that allows AI models
 The following tools are available by default:
 
 #### `get_current_time`
+
 Returns the current UTC time in ISO 8601 format.
 
 **Usage Example:**
+
 ```json
 {
   "tools": [
@@ -29,13 +31,16 @@ Returns the current UTC time in ISO 8601 format.
 ```
 
 #### `fetch_url`
+
 Fetches content from URLs (supports text and JSON responses).
 
 **Parameters:**
+
 - `url` (string, required) - URL to fetch
 - `format` (string, optional) - Response format ("text" or "json")
 
 **Usage Example:**
+
 ```json
 {
   "tools": [
@@ -47,8 +52,8 @@ Fetches content from URLs (supports text and JSON responses).
         "parameters": {
           "type": "object",
           "properties": {
-            "url": {"type": "string", "description": "URL to fetch"},
-            "format": {"type": "string", "enum": ["text", "json"]}
+            "url": { "type": "string", "description": "URL to fetch" },
+            "format": { "type": "string", "enum": ["text", "json"] }
           },
           "required": ["url"]
         }
@@ -59,13 +64,16 @@ Fetches content from URLs (supports text and JSON responses).
 ```
 
 #### `hash_string`
+
 Calculates SHA256 or SHA1 hashes of text.
 
 **Parameters:**
+
 - `text` (string, required) - Text to hash
 - `algorithm` (string, optional) - Hash algorithm ("sha256" or "sha1", default: "sha256")
 
 **Usage Example:**
+
 ```json
 {
   "tools": [
@@ -77,8 +85,8 @@ Calculates SHA256 or SHA1 hashes of text.
         "parameters": {
           "type": "object",
           "properties": {
-            "text": {"type": "string", "description": "Text to hash"},
-            "algorithm": {"type": "string", "enum": ["sha256", "sha1"]}
+            "text": { "type": "string", "description": "Text to hash" },
+            "algorithm": { "type": "string", "enum": ["sha256", "sha1"] }
           },
           "required": ["text"]
         }
@@ -89,12 +97,15 @@ Calculates SHA256 or SHA1 hashes of text.
 ```
 
 #### `calculate_expression`
+
 Safely evaluates mathematical expressions.
 
 **Parameters:**
+
 - `expression` (string, required) - Mathematical expression to evaluate
 
 **Usage Example:**
+
 ```json
 {
   "tools": [
@@ -106,7 +117,7 @@ Safely evaluates mathematical expressions.
         "parameters": {
           "type": "object",
           "properties": {
-            "expression": {"type": "string", "description": "Mathematical expression"}
+            "expression": { "type": "string", "description": "Mathematical expression" }
           },
           "required": ["expression"]
         }
@@ -119,6 +130,7 @@ Safely evaluates mathematical expressions.
 ### Tool Calling in Action
 
 **Complete Request Example:**
+
 ```bash
 curl -X POST http://localhost:9090/v1/chat/completions \
   -H "Content-Type: application/json" \
@@ -162,7 +174,7 @@ import { registerTool } from "./tool-registry.ts";
 
 registerTool(
   "custom_tool",
-  async function(args: { param: string }) {
+  async function (args: { param: string }) {
     return `Processed: ${args.param}`;
   },
   "Custom tool description",

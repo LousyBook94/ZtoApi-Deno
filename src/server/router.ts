@@ -41,7 +41,7 @@ function debugLog(format: string, ...args: unknown[]): void {
  */
 function initializeServer(): void {
   debugLog("Initializing server components...");
-  
+
   // Initialize built-in tools
   try {
     initializeBuiltinTools();

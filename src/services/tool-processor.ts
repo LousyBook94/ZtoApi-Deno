@@ -17,7 +17,7 @@ export function detectToolCall(data: UpstreamData): ToolCall | null {
   try {
     // Look for function call patterns in the delta_content
     const content = data.data?.delta_content || "";
-    
+
     // Pattern 1: Look for JSON function call format
     const functionCallMatch = content.match(/```json\s*\n\s*(\{[^`]*\})\s*\n```/);
     if (functionCallMatch) {
@@ -29,8 +29,8 @@ export function detectToolCall(data: UpstreamData): ToolCall | null {
             type: "function",
             function: {
               name: functionCall.name,
-              arguments: typeof functionCall.arguments === "string" 
-                ? functionCall.arguments 
+              arguments: typeof functionCall.arguments === "string"
+                ? functionCall.arguments
                 : JSON.stringify(functionCall.arguments),
             },
           };
@@ -45,18 +45,20 @@ export function detectToolCall(data: UpstreamData): ToolCall | null {
     if (functionCallsMatch) {
       try {
         const callsXml = functionCallsMatch[1];
-        const invokeMatch = callsXml.match(/<invoke name="([^"]+)">\s*(<parameter[^>]*>.*?<\/parameter>\s*)*<\/invoke>/s);
-        
+        const invokeMatch = callsXml.match(
+          /<invoke name="([^"]+)">\s*(<parameter[^>]*>.*?<\/parameter>\s*)*<\/invoke>/s,
+        );
+
         if (invokeMatch) {
           const toolName = invokeMatch[1];
           const parameters: Record<string, unknown> = {};
-          
+
           // Extract parameters
           const paramMatches = callsXml.matchAll(/<parameter name="([^"]+)">([^<]*)<\/parameter>/g);
           for (const match of paramMatches) {
             parameters[match[1]] = match[2].trim();
           }
-          
+
           return {
             id: `call_${Date.now()}_${Math.random().toString(36).substring(7)}`,
             type: "function",
@@ -76,7 +78,7 @@ export function detectToolCall(data: UpstreamData): ToolCall | null {
     if (simpleMatch) {
       const toolName = simpleMatch[1];
       const argsStr = simpleMatch[2].trim();
-      
+
       // Try to parse arguments
       let args: Record<string, unknown> = {};
       if (argsStr) {
@@ -88,7 +90,7 @@ export function detectToolCall(data: UpstreamData): ToolCall | null {
           args = { input: argsStr };
         }
       }
-      
+
       return {
         id: `call_${Date.now()}_${Math.random().toString(36).substring(7)}`,
         type: "function",
@@ -114,13 +116,13 @@ export function detectToolCall(data: UpstreamData): ToolCall | null {
 export async function processToolCall(toolCall: ToolCall): Promise<string> {
   try {
     logger.info("Executing tool call: %s", toolCall.function.name);
-    
+
     const args = JSON.parse(toolCall.function.arguments);
     const result = await executeTool(toolCall.function.name, args);
-    
+
     // Convert result to string
     const resultStr = typeof result === "string" ? result : JSON.stringify(result, null, 2);
-    
+
     logger.info("Tool call %s completed successfully", toolCall.function.name);
     recordToolCall(toolCall.function.name, true);
     return resultStr;

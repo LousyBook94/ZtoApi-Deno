@@ -64,8 +64,6 @@ export interface UploadedFile {
   url: string;
 }
 
-
-
 export interface UpstreamError {
   detail: string;
   code: number;

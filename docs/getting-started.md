@@ -143,7 +143,7 @@ import { registerTool } from "./tool-registry.ts";
 
 registerTool(
   "my_custom_tool",
-  async function(args: { message: string }) {
+  async function (args: { message: string }) {
     return `Echo: ${args.message}`;
   },
   "Echoes back the message",

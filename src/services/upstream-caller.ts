@@ -11,7 +11,7 @@ import { generateSignature } from "./signature.ts";
 import { SmartHeaderGenerator } from "./header-generator.ts";
 import { ImageProcessor } from "./image-processor.ts";
 import { detectToolCall, processToolCall } from "./tool-processor.ts";
-import type { UpstreamRequest, UpstreamData, ToolCall } from "../types/definitions.ts";
+import type { UpstreamData, UpstreamRequest } from "../types/definitions.ts";
 
 /**
  * Call upstream API with proper headers and signature
@@ -149,7 +149,7 @@ async function processToolCallsInResponse(response: Response): Promise<Response>
   try {
     const responseText = await response.text();
     const responseData: UpstreamData = JSON.parse(responseText);
-    
+
     const toolCall = detectToolCall(responseData);
     if (!toolCall) {
       // No tool call detected, return original response
@@ -160,10 +160,10 @@ async function processToolCallsInResponse(response: Response): Promise<Response>
     }
 
     logger.info("Tool call detected in response: %s", toolCall.function.name);
-    
+
     // Execute the tool
     const toolResult = await processToolCall(toolCall);
-    
+
     // Create a modified response that includes the tool result
     const modifiedResponse = {
       ...responseData,

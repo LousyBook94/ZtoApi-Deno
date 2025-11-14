@@ -4,7 +4,7 @@
  */
 
 import { logger } from "../utils/logger.ts";
-import type { ToolFunction } from "../types/definitions.ts";
+import type { ToolFunction as _ToolFunction } from "../types/definitions.ts";
 
 /**
  * Tool metadata interface

@@ -140,6 +140,7 @@ ZtoApi includes a comprehensive native tool calling system that allows AI models
 ### Tool Call Detection
 
 The system detects tool calls in multiple formats:
+
 - JSON: `{"name": "tool_name", "arguments": {...}}`
 - XML: `<function_calls><invoke name="tool_name">...</invoke></function_calls>`
 - Simple: `function_call: tool_name()`
@@ -151,7 +152,7 @@ Register new tools in `src/services/init-tools.ts`:
 ```typescript
 registerTool(
   "tool_name",
-  async function(args: { param: string }) {
+  async function (args: { param: string }) {
     return `Processed: ${args.param}`;
   },
   "Tool description",

@@ -17,7 +17,7 @@ export let stats: RequestStats = {
 export let liveRequests: LiveRequest[] = [];
 
 // Tool call statistics
-export let toolStats: Record<string, number> = {};
+export const toolStats: Record<string, number> = {};
 export let totalToolCalls: number = 0;
 
 /**
@@ -114,11 +114,11 @@ export function getLiveRequestsData(): string {
  */
 export function recordToolCall(toolName: string, success: boolean): void {
   totalToolCalls++;
-  
+
   if (!toolStats[toolName]) {
     toolStats[toolName] = 0;
   }
-  
+
   if (success) {
     toolStats[toolName]++;
   }

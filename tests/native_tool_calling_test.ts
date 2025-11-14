@@ -4,31 +4,24 @@
  */
 
 import { assertEquals, assertExists, assertRejects, assertThrows } from "assert";
-import { 
-  registerTool, 
-  getTool, 
-  hasTool, 
-  executeTool, 
-  getAllTools, 
-  clearTools 
-} from "../src/services/tool-registry.ts";
-import { validateTools, getAvailableToolNames } from "../src/utils/validation.ts";
+import { clearTools, executeTool, getAllTools, getTool, hasTool, registerTool } from "../src/services/tool-registry.ts";
+import { getAvailableToolNames, validateTools } from "../src/utils/validation.ts";
 import { detectToolCall, processToolCall } from "../src/services/tool-processor.ts";
 import { initializeBuiltinTools } from "../src/services/init-tools.ts";
 import type { Tool, UpstreamData } from "../src/types/definitions.ts";
 
 // Test tool function
-async function testTool(args: { message: string }): Promise<string> {
+function testTool(args: { message: string }): string {
   return `Echo: ${args.message}`;
 }
 
 Deno.test("Tool Registry - Register and retrieve tools", () => {
   clearTools();
-  
+
   // Register a test tool
   registerTool(
     "test_tool",
-    testTool,
+    (...args: unknown[]) => testTool(args[0] as { message: string }),
     "A test tool that echoes messages",
     {
       type: "object",
@@ -57,10 +50,10 @@ Deno.test("Tool Registry - Register and retrieve tools", () => {
 
 Deno.test("Tool Registry - Execute tools", async () => {
   clearTools();
-  
+
   registerTool(
     "test_tool",
-    testTool,
+    (...args: unknown[]) => testTool(args[0] as { message: string }),
     "A test tool that echoes messages",
     {
       type: "object",
@@ -85,11 +78,11 @@ Deno.test("Tool Registry - Execute tools", async () => {
 
 Deno.test("Tool Validation - Validate tools array", () => {
   clearTools();
-  
+
   // Register a test tool
   registerTool(
     "test_tool",
-    testTool,
+    (...args: unknown[]) => testTool(args[0] as { message: string }),
     "A test tool that echoes messages",
     {
       type: "object",
@@ -158,7 +151,7 @@ Deno.test("Tool Validation - Validate tools array", () => {
 
 Deno.test("Built-in Tools - Initialize and test", async () => {
   clearTools();
-  
+
   // Initialize built-in tools
   initializeBuiltinTools();
 
@@ -174,16 +167,16 @@ Deno.test("Built-in Tools - Initialize and test", async () => {
   assertEquals(typeof timeResult, "string");
 
   // Test hash_string tool
-  const hashResult = await executeTool("hash_string", { 
-    text: "test", 
-    algorithm: "sha256" 
+  const hashResult = await executeTool("hash_string", {
+    text: "test",
+    algorithm: "sha256",
   });
   assertEquals(typeof hashResult, "string");
-  assertEquals(hashResult.length, 64); // SHA256 hash length
+  assertEquals((hashResult as string).length, 64); // SHA256 hash length
 
   // Test calculate_expression tool
-  const calcResult = await executeTool("calculate_expression", { 
-    expression: "2 + 3 * 4" 
+  const calcResult = await executeTool("calculate_expression", {
+    expression: "2 + 3 * 4",
   });
   assertEquals(calcResult, 14);
 });
@@ -208,7 +201,8 @@ Deno.test("Tool Call Detection - Detect various formats", () => {
   const xmlData: UpstreamData = {
     type: "content",
     data: {
-      delta_content: '<function_calls>\n<invoke name="test_tool">\n<parameter name="message">hello</parameter>\n</invoke>\n</function_calls>',
+      delta_content:
+        '<function_calls>\n<invoke name="test_tool">\n<parameter name="message">hello</parameter>\n</invoke>\n</function_calls>',
       phase: "content",
       done: false,
     },
@@ -248,10 +242,10 @@ Deno.test("Tool Call Detection - Detect various formats", () => {
 
 Deno.test("Tool Call Processing - Process tool calls", async () => {
   clearTools();
-  
+
   registerTool(
     "test_tool",
-    testTool,
+    (...args: unknown[]) => testTool(args[0] as { message: string }),
     "A test tool that echoes messages",
     {
       type: "object",
@@ -277,9 +271,9 @@ Deno.test("Tool Call Processing - Process tool calls", async () => {
 
 Deno.test("Tool Validation - Get available tool names", () => {
   clearTools();
-  
-  registerTool("tool1", testTool, "Tool 1", {});
-  registerTool("tool2", testTool, "Tool 2", {});
+
+  registerTool("tool1", (...args: unknown[]) => testTool(args[0] as { message: string }), "Tool 1", {});
+  registerTool("tool2", (...args: unknown[]) => testTool(args[0] as { message: string }), "Tool 2", {});
 
   const names = getAvailableToolNames();
   assertEquals(names.length, 2);
@@ -289,10 +283,10 @@ Deno.test("Tool Validation - Get available tool names", () => {
 
 Deno.test("Tool Registry - Clear tools", () => {
   clearTools();
-  
-  registerTool("test_tool", testTool, "Test tool", {});
+
+  registerTool("test_tool", (...args: unknown[]) => testTool(args[0] as { message: string }), "Test tool", {});
   assertEquals(hasTool("test_tool"), true);
-  
+
   clearTools();
   assertEquals(hasTool("test_tool"), false);
   assertEquals(getAllTools().length, 0);

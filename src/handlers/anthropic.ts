@@ -15,7 +15,7 @@ import type { Message, UpstreamRequest } from "../types/definitions.ts";
 import { getModelConfig } from "../config/models.ts";
 import { addLiveRequest, recordRequestStats } from "../utils/stats.ts";
 import { setCORSHeaders } from "../utils/helpers.ts";
-import { processMessages } from "../utils/validation.ts";
+import { processMessages, validateTools } from "../utils/validation.ts";
 import { getAnonymousToken } from "../services/anonymous-token.ts";
 import { callUpstreamWithHeaders } from "../services/upstream-caller.ts";
 import { collectFullResponse, processUpstreamStream } from "../utils/stream.ts";
@@ -165,6 +165,41 @@ export async function handleAnthropicMessages(request: Request): Promise<Respons
         headers: { ...headers, "Content-Type": "application/json" },
       },
     );
+  }
+
+  // Validate tools if present
+  if (anthropicReq.tools && anthropicReq.tools.length > 0) {
+    try {
+      // Convert Anthropic tools to OpenAI format for validation
+      const openaiTools = anthropicReq.tools.map((tool) => ({
+        type: "function" as const,
+        function: {
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.input_schema,
+        },
+      }));
+      validateTools(openaiTools);
+      debugLog("✅ Anthropic tools validated successfully");
+    } catch (error) {
+      debugLog("Tool validation failed: %v", error);
+      const duration = Date.now() - startTime;
+      recordRequestStats(startTime, path, 400);
+      addLiveRequest(request.method, path, 400, duration, userAgent);
+      return new Response(
+        JSON.stringify({
+          type: "error",
+          error: {
+            type: "invalid_request_error",
+            message: error instanceof Error ? error.message : "Tool validation failed",
+          },
+        }),
+        {
+          status: 400,
+          headers: { ...headers, "Content-Type": "application/json" },
+        },
+      );
+    }
   }
 
   // Convert to OpenAI format for processing

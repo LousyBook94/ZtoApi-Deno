@@ -113,33 +113,40 @@ Controls how the model uses tools:
 The following tools are available by default:
 
 #### `get_current_time`
+
 Returns the current UTC time.
 
 **Parameters:** None
 **Returns:** Current timestamp in ISO 8601 format
 
 #### `fetch_url`
+
 Fetches content from a URL.
 
 **Parameters:**
+
 - `url` (string, required) - URL to fetch
 - `format` (string, optional) - Response format ("text" or "json")
 
 **Returns:** Content from the URL
 
 #### `hash_string`
+
 Calculates hash of a string.
 
 **Parameters:**
+
 - `text` (string, required) - Text to hash
 - `algorithm` (string, optional) - Hash algorithm ("sha256" or "sha1", default: "sha256")
 
 **Returns:** Hexadecimal hash value
 
 #### `calculate_expression`
+
 Safely evaluates mathematical expressions.
 
 **Parameters:**
+
 - `expression` (string, required) - Mathematical expression to evaluate
 
 **Returns:** Calculated result

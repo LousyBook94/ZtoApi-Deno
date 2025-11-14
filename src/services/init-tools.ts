@@ -3,13 +3,13 @@
  * Registers all native tools that are available by default
  */
 
-import { registerTool } from "./tool-registry.ts";
+import { registerTool, TOOL_REGISTRY } from "./tool-registry.ts";
 import { logger } from "../utils/logger.ts";
 
 /**
  * Get current time tool
  */
-async function getCurrentTime(_args: unknown): Promise<string> {
+function getCurrentTime(_args: unknown): string {
   return new Date().toISOString();
 }
 
@@ -88,7 +88,7 @@ async function hashString(args: { text: string; algorithm?: "sha256" | "sha1" | 
 /**
  * Calculate expression tool
  */
-async function calculateExpression(args: { expression: string }): Promise<number> {
+function calculateExpression(args: { expression: string }): number {
   if (!args || typeof args.expression !== "string") {
     throw new Error("Expression parameter is required and must be a string");
   }
@@ -134,7 +134,7 @@ export function initializeBuiltinTools(): void {
   // Register fetch_url tool
   registerTool(
     "fetch_url",
-    fetchUrl,
+    (...args: unknown[]) => fetchUrl(args[0] as { url: string }),
     "Fetch content from a URL (supports text and JSON responses)",
     {
       type: "object",
@@ -151,7 +151,7 @@ export function initializeBuiltinTools(): void {
   // Register hash_string tool
   registerTool(
     "hash_string",
-    hashString,
+    (...args: unknown[]) => hashString(args[0] as { text: string; algorithm?: "sha256" | "sha1" | "md5" }),
     "Calculate hash of a string using specified algorithm",
     {
       type: "object",
@@ -173,19 +173,19 @@ export function initializeBuiltinTools(): void {
   // Register calculate_expression tool
   registerTool(
     "calculate_expression",
-    calculateExpression,
+    (...args: unknown[]) => calculateExpression(args[0] as { expression: string }),
     "Safely evaluate mathematical expressions",
     {
       type: "object",
       properties: {
         expression: {
           type: "string",
-          description: "Mathematical expression to evaluate (e.g., '2 + 3 * 4')",
+          description: "Mathematical expression to evaluate",
         },
       },
       required: ["expression"],
     },
   );
 
-  logger.info("Initialized %d built-in tools", Object.keys(require("./tool-registry.ts").TOOL_REGISTRY).length);
+  logger.info("Initialized %d built-in tools", Object.keys(TOOL_REGISTRY).length);
 }

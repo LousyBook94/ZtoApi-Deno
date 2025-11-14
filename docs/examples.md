@@ -338,7 +338,7 @@ const response = await fetch("http://localhost:9090/v1/chat/completions", {
   },
   body: JSON.stringify({
     model: "GLM-4.5",
-    messages: [{ role: "user", content: "Calculate 15 * 8"}],
+    messages: [{ role: "user", content: "Calculate 15 * 8" }],
     tools: [
       {
         type: "function",
@@ -348,14 +348,14 @@ const response = await fetch("http://localhost:9090/v1/chat/completions", {
           parameters: {
             type: "object",
             properties: {
-              expression: { type: "string" }
+              expression: { type: "string" },
             },
-            required: ["expression"]
-          }
-        }
-      }
+            required: ["expression"],
+          },
+        },
+      },
     ],
-    tool_choice: "auto"
+    tool_choice: "auto",
   }),
 });
 

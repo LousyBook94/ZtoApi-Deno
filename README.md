@@ -106,9 +106,10 @@ curl -X POST http://localhost:9090/v1/chat/completions \
 ```
 
 **Available built-in tools:**
+
 - `get_current_time` - Returns current UTC time
 - `fetch_url` - Fetches content from URLs (text/JSON)
-- `hash_string` - Calculates SHA256/SHA1 hashes  
+- `hash_string` - Calculates SHA256/SHA1 hashes
 - `calculate_expression` - Safely evaluates math expressions
 
 See [Native Tool Calling](./docs/native-tool-calling.md) for complete documentation.

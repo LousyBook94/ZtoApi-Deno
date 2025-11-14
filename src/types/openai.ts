@@ -2,7 +2,7 @@
  * OpenAI API type definitions
  */
 
-import type { Message, Usage } from "./common.ts";
+import type { Message, ToolCall, Usage } from "./definitions.ts";
 
 /**
  * OpenAI chat completion request
@@ -39,4 +39,5 @@ export interface Delta {
   role?: string;
   content?: string;
   reasoning_content?: string;
+  tool_calls?: ToolCall[];
 }
