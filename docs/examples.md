@@ -207,4 +207,201 @@ const claudeResponse = await fetch("http://localhost:9090/anthropic/v1/messages"
 - **🚀 Both work identically** - same GLM models, same performance, same features!
 - **💡 Pro tip**: Try both! Some tools work better with different API formats
 
-For more on features, see [Features](../docs/features.md).
+## 🛠️ **Tool Calling Examples**
+
+### **Python (OpenAI SDK) - Tool Calling**
+
+```python
+import openai
+
+client = openai.OpenAI(
+    api_key="your-api-key",
+    base_url="http://localhost:9090/v1"
+)
+
+# Basic tool calling
+response = client.chat.completions.create(
+    model="GLM-4.5",
+    messages=[{"role": "user", "content": "What time is it?"}],
+    tools=[
+        {
+            "type": "function",
+            "function": {
+                "name": "get_current_time",
+                "description": "Get current UTC time"
+            }
+        }
+    ],
+    tool_choice="auto"
+)
+
+print(response.choices[0].message.content)
+
+# Multiple tools
+response = client.chat.completions.create(
+    model="GLM-4.5",
+    messages=[{"role": "user", "content": "Calculate 2+2 and hash 'hello'"}],
+    tools=[
+        {
+            "type": "function",
+            "function": {
+                "name": "calculate_expression",
+                "description": "Calculate mathematical expressions",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "expression": {"type": "string"}
+                    },
+                    "required": ["expression"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "hash_string",
+                "description": "Calculate hash of a string",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "text": {"type": "string"},
+                        "algorithm": {"type": "string", "enum": ["sha256", "sha1"]}
+                    },
+                    "required": ["text"]
+                }
+            }
+        }
+    ],
+    tool_choice="auto"
+)
+```
+
+### **cURL - Tool Calling**
+
+```bash
+# Time tool example
+curl -X POST http://localhost:9090/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-api-key" \
+  -d '{
+    "model": "GLM-4.5",
+    "messages": [{"role": "user", "content": "What time is it?"}],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "get_current_time",
+          "description": "Get current UTC time"
+        }
+      }
+    ],
+    "tool_choice": "auto"
+  }'
+
+# URL fetching tool example
+curl -X POST http://localhost:9090/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-api-key" \
+  -d '{
+    "model": "GLM-4.5",
+    "messages": [{"role": "user", "content": "Fetch the latest news from https://news.example.com"}],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "fetch_url",
+          "description": "Fetch content from a URL",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "url": {"type": "string"},
+              "format": {"type": "string", "enum": ["text", "json"]}
+            },
+            "required": ["url"]
+          }
+        }
+      }
+    ],
+    "tool_choice": "auto"
+  }'
+```
+
+### **JavaScript - Tool Calling**
+
+```javascript
+// Tool calling with fetch
+const response = await fetch("http://localhost:9090/v1/chat/completions", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer your-api-key",
+  },
+  body: JSON.stringify({
+    model: "GLM-4.5",
+    messages: [{ role: "user", content: "Calculate 15 * 8" }],
+    tools: [
+      {
+        type: "function",
+        function: {
+          name: "calculate_expression",
+          description: "Calculate mathematical expressions",
+          parameters: {
+            type: "object",
+            properties: {
+              expression: { type: "string" },
+            },
+            required: ["expression"],
+          },
+        },
+      },
+    ],
+    tool_choice: "auto",
+  }),
+});
+
+const result = await response.json();
+console.log(result.choices[0].message.content);
+```
+
+### **Streaming with Tool Calling**
+
+```python
+# Streaming tool calls
+stream = client.chat.completions.create(
+    model="GLM-4.5",
+    messages=[{"role": "user", "content": "What time is it and calculate 100/5?"}],
+    tools=[
+        {
+            "type": "function",
+            "function": {
+                "name": "get_current_time",
+                "description": "Get current UTC time"
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "calculate_expression",
+                "description": "Calculate mathematical expressions",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "expression": {"type": "string"}
+                    },
+                    "required": ["expression"]
+                }
+            }
+        }
+    ],
+    tool_choice="auto",
+    stream=True
+)
+
+for chunk in stream:
+    if chunk.choices[0].delta.tool_calls:
+        print("Tool call:", chunk.choices[0].delta.tool_calls)
+    elif chunk.choices[0].delta.content:
+        print("Content:", chunk.choices[0].delta.content)
+```
+
+For more on features, see [Features](../docs/features.md) and [Native Tool Calling](./native-tool-calling.md).

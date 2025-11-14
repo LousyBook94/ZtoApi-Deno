@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.1.0] - 2025-11-14
+
+### Added
+
+- **Native Tool Calling Support**: AI can now execute server-side functions
+  - Tool registry system for managing available functions
+  - Built-in tools: `get_current_time`, `fetch_url`, `hash_string`, `calculate_expression`
+  - Support for multiple tool call formats (JSON, XML, simple)
+  - Tool validation and security controls
+  - Streaming and non-streaming tool call support
+  - Tool execution metrics and monitoring
+  - Comprehensive test suite for tool functionality
+- **Documentation**: Added detailed native tool calling guide
+- **TypeScript Interfaces**: Extended request/response types for tool support
+
+### Changed
+
+- **Request Validation**: Enhanced to support tool validation
+- **Stream Processing**: Updated to handle tool calls in streaming responses
+- **Statistics**: Added tool call metrics tracking
+- **Upstream Caller**: Enhanced to detect and process tool calls
+
 ## [2.0.0] - 2025-11-06
 
 ### Added

@@ -6,25 +6,32 @@ This file provides essential information for agents working on the ZtoApi codeba
 
 ### Running the Application
 
-- **Start the server**: `deno run --allow-net --allow-env --allow-read main.ts`
-- **Development mode (with watch)**: `deno run --allow-net --allow-env --allow-read --watch main.ts`
+- **Start the server**: `deno task start`
+- **Development mode (with watch)**: `deno task dev`
 - **Test Anthropic integration**: `deno run --allow-net test_anthropic.ts`
 
 ### Testing
 
-- **Run all tests**: `deno test --allow-net --allow-env --allow-read`
-- **Run a single test file**: `deno test main_test.ts` (or specify any test file)
-- **Check TypeScript types**: `deno check main.ts anthropic.ts`
+- **Run all tests**: `deno task test`
+- **Run quick tests**: `deno task test:quick`
+- **Run verbose tests**: `deno task test:verbose`
+- **Run unit tests only**: `deno task test:unit`
+- **Run integration tests only**: `deno task test:integration`
+- **Run smoke tests only**: `deno task test:smoke`
+- **Check TypeScript types**: `deno task check`
 
 ### Linting and Code Quality
 
-- **Lint the code**: `deno lint`
-- **Format code**: `deno fmt` (Deno's built-in formatter)
+- **Lint the code**: `deno task lint`
+- **Format code**: `deno task fmt`
+- **Check formatting**: `deno task fmt:check`
 
 ### Notes
 
 - All commands require network, environment, and read permissions as the app interacts with external APIs and reads configuration.
-- For running a single test, use `deno test <file_path>` where `<file_path>` is the path to the specific test file (e.g., `main_test.ts`).
+- For running a single test file, use `deno test <file_path>` where `<file_path>` is the path to the specific test file (e.g., `main_test.ts`).
+- Use `deno task test` for comprehensive testing including unit and integration tests.
+- **IMPORTANT**: Always run `deno task test` before completing any work to ensure all tests pass and code quality is maintained.
 
 ## Code Style Guidelines
 
@@ -39,7 +46,7 @@ This file provides essential information for agents working on the ZtoApi codeba
 - **Indentation**: Use 2 spaces (Deno default).
 - **Line endings**: Unix-style (LF).
 - **File encoding**: UTF-8.
-- **Semicolons**: Optional, but consistent (prefer no semicolons where possible).
+- **Semicolons**: Required (configured in deno.json).
 - **Quotes**: Use double quotes for strings.
 
 ### Naming Conventions
@@ -89,6 +96,7 @@ This file provides essential information for agents working on the ZtoApi codeba
 - **Input validation**: Validate API inputs and sanitize where possible.
 - **CORS**: Properly configure CORS headers for cross-origin requests.
 - **Environment checks**: Use `Deno.env.get()` for configuration.
+- **Tool security**: Only registered tools can be executed; sandboxed execution environment; parameter validation.
 
 ### Example Code Style
 
@@ -110,6 +118,60 @@ function processInput(input: string): string {
 }
 ```
 
+## Native Tool Calling System
+
+### Overview
+
+ZtoApi includes a comprehensive native tool calling system that allows AI models to execute predefined server-side functions. This enables richer interactions beyond text generation.
+
+### Architecture
+
+- **Tool Registry** (`src/services/tool-registry.ts`): Central registry managing all available tools
+- **Built-in Tools** (`src/services/init-tools.ts`): Default tools (time, URL fetching, hashing, math)
+- **Tool Processor** (`src/services/tool-processor.ts`): Detection and execution of tool calls
+- **Validation** (`src/utils/validation.ts`): Tool request validation and security checks
+
+### Supported Tools
+
+1. **get_current_time**: Returns current UTC time
+2. **fetch_url**: Fetches content from URLs (text/JSON)
+3. **hash_string**: Calculates SHA256/SHA1 hashes
+4. **calculate_expression**: Safely evaluates math expressions
+
+### Tool Call Detection
+
+The system detects tool calls in multiple formats:
+
+- JSON: `{"name": "tool_name", "arguments": {...}}`
+- XML: `<function_calls><invoke name="tool_name">...</invoke></function_calls>`
+- Simple: `function_call: tool_name()`
+
+### Adding Custom Tools
+
+Register new tools in `src/services/init-tools.ts`:
+
+```typescript
+registerTool(
+  "tool_name",
+  async function (args: { param: string }) {
+    return `Processed: ${args.param}`;
+  },
+  "Tool description",
+  {
+    type: "object",
+    properties: { param: { type: "string" } },
+    required: ["param"],
+  },
+);
+```
+
+### Security Features
+
+- Whitelist-based tool registry
+- Input validation and sanitization
+- Sandboxed execution environment
+- Error handling without server crashes
+
 ## Project Structure and Design
 
 ### Overview
@@ -124,22 +186,29 @@ ZtoApi is a Deno-based API proxy server that provides OpenAI and Anthropic Claud
 - **Authentication**: API key validation with optional anonymous token fetching.
 - **Streaming**: Server-Sent Events (SSE) for real-time responses.
 - **UI**: Built-in web dashboard for monitoring (`/dashboard`).
+- **Tool Calling**: Native tool execution with registry-based management and validation.
 
 ### Key Components
 
 - **main.ts**: Core server logic, request handling, routing, and upstream communication.
 - **anthropic.ts**: Anthropic API conversion utilities, model mappings, and token counting.
+- **Tool Services** (`src/services/`):
+  - `tool-registry.ts`: Central registry for managing native tools
+  - `init-tools.ts`: Built-in tools (get_current_time, fetch_url, hash_string, calculate_expression)
+  - `tool-processor.ts`: Tool call detection and execution
 - **UI files** (`ui/`): HTML/CSS/JS for the dashboard and documentation.
-- **Tests** (`*_test.ts`): Unit tests for core functions.
+- **Tests** (`*_test.ts`): Unit tests for core functions, including `native_tool_calling_test.ts`.
 - **Configuration**: `deno.json` for tasks and imports; environment variables for runtime config.
 
 ### Design Patterns
 
 - **Modular interfaces**: Separate interfaces for OpenAI and Anthropic requests/responses.
 - **Conversion layers**: Functions to convert between API formats (e.g., `convertAnthropicToOpenAI`).
+- **Tool processing**: Detection and execution of tool calls in multiple formats (JSON, XML, simple).
 - **Configuration-driven**: Model configs and feature flags via constants and env vars.
 - **Error propagation**: Centralized error handling with detailed logging.
 - **State management**: Global stats and live request tracking for the dashboard.
+- **Tool registry**: Whitelist-based system for managing and executing native tools.
 
 ### Supported Models
 
@@ -151,6 +220,7 @@ ZtoApi is a Deno-based API proxy server that provides OpenAI and Anthropic Claud
 
 - **Thinking content modes**: `strip`, `thinking`, `think`, `raw`, `separate` for handling model reasoning.
 - **Multimodal support**: Process images, videos, documents, and audio in requests.
+- **Native tool calling**: AI can execute server-side functions (get_current_time, fetch_url, hash_string, calculate_expression).
 - **Real-time stats**: Track requests, response times, and errors via global state.
 - **Anonymous tokens**: Automatic fetching for unauthenticated requests.
 - **Signature generation**: Custom HMAC-based signing for upstream requests.
@@ -165,4 +235,6 @@ ZtoApi is a Deno-based API proxy server that provides OpenAI and Anthropic Claud
 
 - Update this file whenever system or design changes occur (e.g., new endpoints, config options, or architectural shifts).
 - Ensure all new code adheres to the style guidelines above.
-- Run tests and linting before commits to maintain code quality.
+- Run `deno task test` and `deno task lint` before commits to maintain code quality.
+- When adding new tools, update `src/services/init-tools.ts` and test with `native_tool_calling_test.ts`.
+- Tool registry is initialized automatically on server startup via `src/server/router.ts`.

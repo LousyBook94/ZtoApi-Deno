@@ -97,6 +97,46 @@ export interface Message {
       audio_url?: { url: string };
     }>;
   reasoning_content?: string;
+  tool_calls?: ToolCall[];
+  tool_call_id?: string;
+}
+
+/**
+ * Tool function definition
+ */
+export interface ToolFunction {
+  name: string;
+  description?: string;
+  parameters?: Record<string, unknown>;
+}
+
+/**
+ * Tool definition
+ */
+export interface Tool {
+  type: "function";
+  function: ToolFunction;
+}
+
+/**
+ * Tool call in response
+ */
+export interface ToolCall {
+  id: string;
+  type: "function";
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
+
+/**
+ * Tool result message
+ */
+export interface ToolResult {
+  tool_call_id: string;
+  role: "tool";
+  content: string;
 }
 
 /**
@@ -109,6 +149,8 @@ export interface OpenAIRequest {
   temperature?: number;
   max_tokens?: number;
   reasoning?: boolean;
+  tools?: Tool[];
+  tool_choice?: "none" | "auto" | "required";
 }
 
 /**
@@ -156,12 +198,14 @@ export interface Choice {
   message?: Message;
   delta?: Delta;
   finish_reason?: string;
+  tool_calls?: ToolCall[];
 }
 
 export interface Delta {
   role?: string;
   content?: string;
   reasoning_content?: string;
+  tool_calls?: ToolCall[];
 }
 
 export interface Usage {

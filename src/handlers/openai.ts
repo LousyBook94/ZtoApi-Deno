@@ -7,7 +7,7 @@ import type { Message, OpenAIRequest, OpenAIResponse, UpstreamRequest } from "..
 import { getModelConfig } from "../config/models.ts";
 import { addLiveRequest, recordRequestStats } from "../utils/stats.ts";
 import { setCORSHeaders } from "../utils/helpers.ts";
-import { processMessages } from "../utils/validation.ts";
+import { processMessages, validateTools } from "../utils/validation.ts";
 import { getAnonymousToken } from "../services/anonymous-token.ts";
 import { callUpstreamWithHeaders } from "../services/upstream-caller.ts";
 import { collectFullResponse, processUpstreamStream } from "../utils/stream.ts";
@@ -90,6 +90,23 @@ export async function handleChatCompletions(request: Request): Promise<Response>
       status: 400,
       headers,
     });
+  }
+
+  // Validate tools if present
+  try {
+    validateTools(openaiReq.tools);
+  } catch (error) {
+    debugLog("Tool validation failed: %v", error);
+    const duration = Date.now() - startTime;
+    recordRequestStats(startTime, path, 400);
+    addLiveRequest(request.method, path, 400, duration, userAgent);
+    return new Response(
+      error instanceof Error ? error.message : "Tool validation failed",
+      {
+        status: 400,
+        headers,
+      },
+    );
   }
 
   const model = openaiReq.model || "glm-4.5";

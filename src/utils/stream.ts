@@ -5,7 +5,8 @@
  */
 
 import { logger } from "./logger.ts";
-import type { UpstreamData, Usage } from "../types/common.ts";
+import { detectToolCall, processToolCall } from "../services/tool-processor.ts";
+import type { ToolCall, UpstreamData, Usage } from "../types/definitions.ts";
 import type { OpenAIResponse } from "../types/openai.ts";
 
 // Thinking content handling mode:
@@ -277,6 +278,10 @@ export async function processStreamingResponse(
   let inThinkingPhase = false;
   let thinkingTagOpened = false;
 
+  // Track tool calls in streaming
+  let pendingToolCall: ToolCall | null = null;
+  let toolCallBuffer = "";
+
   try {
     while (true) {
       const { done, value } = await reader.read();
@@ -447,6 +452,87 @@ export async function processStreamingResponse(
             if (upstreamData.data.delta_content && upstreamData.data.delta_content !== "") {
               const rawContent = upstreamData.data.delta_content;
               const isThinking = upstreamData.data.phase === "thinking";
+
+              // Accumulate content for tool call detection
+              toolCallBuffer += rawContent;
+
+              // Check for tool calls in accumulated content
+              const mockUpstreamData: UpstreamData = {
+                type: upstreamData.type,
+                data: {
+                  ...upstreamData.data,
+                  delta_content: toolCallBuffer,
+                },
+              };
+
+              const detectedToolCall = detectToolCall(mockUpstreamData);
+              if (detectedToolCall && !pendingToolCall) {
+                logger.info("Tool call detected in stream: %s", detectedToolCall.function.name);
+                pendingToolCall = detectedToolCall;
+
+                // Send tool call event to client
+                const toolCallChunk: OpenAIResponse = {
+                  id: `chatcmpl-${Date.now()}`,
+                  object: "chat.completion.chunk",
+                  created: Math.floor(Date.now() / 1000),
+                  model: modelName,
+                  choices: [
+                    {
+                      index: 0,
+                      delta: {
+                        tool_calls: [detectedToolCall],
+                      },
+                    },
+                  ],
+                };
+
+                await writer.write(encoder.encode(`data: ${JSON.stringify(toolCallChunk)}\n\n`));
+
+                // Execute tool and send result
+                try {
+                  const toolResult = await processToolCall(detectedToolCall);
+
+                  // Send tool result
+                  const toolResultChunk: OpenAIResponse = {
+                    id: `chatcmpl-${Date.now()}`,
+                    object: "chat.completion.chunk",
+                    created: Math.floor(Date.now() / 1000),
+                    model: modelName,
+                    choices: [
+                      {
+                        index: 0,
+                        delta: {
+                          content: toolResult,
+                        },
+                      },
+                    ],
+                  };
+
+                  await writer.write(encoder.encode(`data: ${JSON.stringify(toolResultChunk)}\n\n`));
+                } catch (error) {
+                  logger.error("Failed to execute tool in stream: %v", error);
+                  const errorChunk: OpenAIResponse = {
+                    id: `chatcmpl-${Date.now()}`,
+                    object: "chat.completion.chunk",
+                    created: Math.floor(Date.now() / 1000),
+                    model: modelName,
+                    choices: [
+                      {
+                        index: 0,
+                        delta: {
+                          content: `Tool execution failed: ${error instanceof Error ? error.message : String(error)}`,
+                        },
+                      },
+                    ],
+                  };
+
+                  await writer.write(encoder.encode(`data: ${JSON.stringify(errorChunk)}\n\n`));
+                }
+
+                // Clear buffer after processing
+                toolCallBuffer = "";
+                continue; // Skip normal content processing for this chunk
+              }
 
               if (thinkTagsMode === "separate") {
                 // In separate mode, accumulate thinking content

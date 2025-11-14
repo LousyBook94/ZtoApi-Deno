@@ -8,6 +8,7 @@ import { UPSTREAM_URL } from "../config/constants.ts";
 import { addLiveRequest, recordRequestStats } from "../utils/stats.ts";
 import { handleAnthropicMessages, handleAnthropicModels, handleAnthropicTokenCount } from "../handlers/anthropic.ts";
 import { handleChatCompletions } from "../handlers/openai.ts";
+import { initializeBuiltinTools } from "../services/init-tools.ts";
 import {
   handleDashboard,
   handleDashboardRequests,
@@ -36,6 +37,21 @@ function debugLog(format: string, ...args: unknown[]): void {
 }
 
 /**
+ * Initialize server components
+ */
+function initializeServer(): void {
+  debugLog("Initializing server components...");
+
+  // Initialize built-in tools
+  try {
+    initializeBuiltinTools();
+    debugLog("✅ Built-in tools initialized successfully");
+  } catch (error) {
+    debugLog("❌ Failed to initialize built-in tools: %v", error);
+  }
+}
+
+/**
  * Start the server
  */
 export function main(): void {
@@ -45,6 +61,9 @@ export function main(): void {
   console.log(`Debug mode: ${DEBUG_MODE ? "ENABLED (Verbose Logging)" : "DISABLED (Performance Mode)"}`);
   console.log(`Default streaming: ${DEFAULT_STREAM}`);
   console.log(`Dashboard enabled: ${DASHBOARD_ENABLED}`);
+
+  // Initialize server components
+  initializeServer();
 
   const port = parseInt(Deno.env.get("PORT") || "9090");
   console.log(`Running on port: ${port}`);

@@ -8,8 +8,8 @@ Overview of supported models and their capabilities.
 
 | Model ID         | GLM Model | Capabilities                           | Description                   |
 | ---------------- | --------- | -------------------------------------- | ----------------------------- |
-| `0727-360B-API`  | GLM-4.5   | Text, Code, Tools                      | Balanced performance model 📝 |
-| `GLM-4-6-API-V1` | GLM-4.6   | Text, Code, Tools                      | **🧠✨ Smartest model!**      |
+| `0727-360B-API`  | GLM-4.5   | Text, Code, Native Tools, MCP          | Balanced performance model 📝 |
+| `GLM-4-6-API-V1` | GLM-4.6   | Text, Code, Native Tools, MCP          | **🧠✨ Smartest model!**      |
 | `glm-4.5v`       | GLM-4.5V  | Multimodal (Image, Video, Audio, Docs) | 🎥🖼️🎵 Full multimodal        |
 
 ## 🎭 **Anthropic Claude-Compatible API** → `/anthropic/v1/` endpoints
@@ -73,6 +73,7 @@ Overview of supported models and their capabilities.
 
 - Thinking/chain-of-thought display 💭
 - MCP tool calls 🛠️
+- **Native tool calling support** 🛠️
 - Code generation 💻
 - No multimodal support 🚫
 
@@ -81,6 +82,7 @@ Overview of supported models and their capabilities.
 - **Super smart and intelligent!** 🧠✨
 - Thinking/chain-of-thought display 💭
 - MCP tool calls 🛠️
+- **Native tool calling support** 🛠️
 - Code generation 💻
 - **All the amazing features of GLM-4.5 but even smarter!** 🚀
 - No multimodal support 🚫
@@ -91,9 +93,35 @@ Overview of supported models and their capabilities.
 - Thinking display 💭
 - Image/video/document/audio understanding 🎥🖼️🎵
 - No MCP tool calls 🚫
+- **Limited native tool calling support** (basic tools available) 🛠️
 
 > 💡 **Important**: Multimodal features require a valid Z.ai API token. Anonymous tokens don't support multimedia.
 
 > 🌟 **Pro tip**: GLM-4.6 is the smartest model with the largest context window! Perfect for complex tasks!
+
+## 🛠️ Tool Calling Support by Model
+
+### Native Tool Calling
+
+ZtoApi provides native tool calling that works across all models:
+
+- **GLM-4.5 & GLM-4.6**: Full native tool calling support with all built-in tools
+- **GLM-4.5V**: Basic tool calling support (time, hash, calculate, fetch)
+- **All Claude models**: Full tool calling support via OpenAI-compatible interface
+
+### Built-in Tools Available
+
+- `get_current_time` - Current UTC time
+- `fetch_url` - Fetch web content
+- `hash_string` - Calculate SHA256/SHA1 hashes
+- `calculate_expression` - Safe math evaluation
+
+### MCP Tool Support
+
+- **GLM-4.5 & GLM-4.6**: Full MCP (Model Context Protocol) tool support
+- **GLM-4.5V**: No MCP support
+- **Claude models**: MCP support varies by model version
+
+For complete tool calling documentation, see [Native Tool Calling](./native-tool-calling.md).
 
 For more on features, see [Features](../docs/features.md).
