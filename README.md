@@ -24,6 +24,7 @@ Hey there! 👋 Welcome to ZtoApi - your ultimate dual-API proxy that brings Z.a
 
 - 🔄 **OpenAI API fully compatible** — use your existing OpenAI clients seamlessly! 🎯
 - 🎭 **Anthropic Claude API fully compatible** — use Claude Desktop, cline, cursor, and any Claude tools! 🤖
+- 🛠️ **Native tool calling support** — AI can execute server-side functions! 🔧
 - 🌊 **SSE streaming support** for both APIs - real-time token delivery! ✨
 - 🧠 **Advanced thinking content processing** with 5 amazing modes
 - 📊 **Built-in web Dashboard** with live request stats for both APIs! 🎨

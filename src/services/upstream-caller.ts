@@ -10,7 +10,8 @@ import { logger } from "../utils/logger.ts";
 import { generateSignature } from "./signature.ts";
 import { SmartHeaderGenerator } from "./header-generator.ts";
 import { ImageProcessor } from "./image-processor.ts";
-import type { UpstreamRequest } from "../types/upstream.ts";
+import { detectToolCall, processToolCall } from "./tool-processor.ts";
+import type { UpstreamRequest, UpstreamData, ToolCall } from "../types/definitions.ts";
 
 /**
  * Call upstream API with proper headers and signature
@@ -126,9 +127,60 @@ export async function callUpstreamWithHeaders(
 
     logger.debug("Upstream response status: %d %s", response.status, response.statusText);
 
+    // Check if response contains tool calls that need processing
+    if (response.ok && !upstreamReq.stream) {
+      const processedResponse = await processToolCallsInResponse(response);
+      return processedResponse;
+    }
+
     return response;
   } catch (error) {
     logger.error("Failed to call upstream: %v", error);
     throw error;
+  }
+}
+
+/**
+ * Process tool calls in non-streaming response
+ * @param response Upstream response
+ * @returns Modified response with tool call results
+ */
+async function processToolCallsInResponse(response: Response): Promise<Response> {
+  try {
+    const responseText = await response.text();
+    const responseData: UpstreamData = JSON.parse(responseText);
+    
+    const toolCall = detectToolCall(responseData);
+    if (!toolCall) {
+      // No tool call detected, return original response
+      return new Response(responseText, {
+        status: response.status,
+        headers: response.headers,
+      });
+    }
+
+    logger.info("Tool call detected in response: %s", toolCall.function.name);
+    
+    // Execute the tool
+    const toolResult = await processToolCall(toolCall);
+    
+    // Create a modified response that includes the tool result
+    const modifiedResponse = {
+      ...responseData,
+      data: {
+        ...responseData.data,
+        delta_content: toolResult,
+        tool_calls: [toolCall],
+      },
+    };
+
+    return new Response(JSON.stringify(modifiedResponse), {
+      status: response.status,
+      headers: response.headers,
+    });
+  } catch (error) {
+    logger.error("Failed to process tool calls in response: %v", error);
+    // Return original response if tool processing fails
+    return response;
   }
 }

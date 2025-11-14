@@ -3,7 +3,8 @@
  * Contains model normalization and message processing functions
  */
 
-import type { Message, ModelConfig } from "../types/definitions.ts";
+import type { Message, ModelConfig, Tool } from "../types/definitions.ts";
+import { hasTool } from "../services/tool-registry.ts";
 
 /**
  * Debug logging function - will be injected
@@ -191,4 +192,48 @@ export function processMessages(messages: Message[], modelConfig: ModelConfig): 
   }
 
   return processedMessages;
+}
+
+/**
+ * Validate tools array in request
+ * @param tools Tools array from request
+ * @throws Error if validation fails
+ */
+export function validateTools(tools?: Tool[]): void {
+  if (!tools || tools.length === 0) {
+    return;
+  }
+
+  for (const tool of tools) {
+    if (tool.type !== "function") {
+      throw new Error(`Unsupported tool type: ${tool.type}. Only 'function' type is supported.`);
+    }
+
+    if (!tool.function || !tool.function.name) {
+      throw new Error("Tool function must have a name");
+    }
+
+    const toolName = tool.function.name;
+    if (!hasTool(toolName)) {
+      throw new Error(`Tool not found: ${toolName}. Available tools: ${getAvailableToolNames().join(", ")}`);
+    }
+
+    // Validate parameters schema if provided
+    if (tool.function.parameters) {
+      if (typeof tool.function.parameters !== "object" || tool.function.parameters === null) {
+        throw new Error(`Tool parameters must be a valid JSON schema object for tool: ${toolName}`);
+      }
+    }
+
+    debugLog("✅ Validated tool: %s", toolName);
+  }
+}
+
+/**
+ * Get list of available tool names
+ * @returns Array of tool names
+ */
+export function getAvailableToolNames(): string[] {
+  const { getAllTools } = require("../services/tool-registry.ts");
+  return getAllTools().map((tool: { name: string }) => tool.name);
 }

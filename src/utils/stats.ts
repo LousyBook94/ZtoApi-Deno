@@ -16,6 +16,10 @@ export let stats: RequestStats = {
 // Live requests tracking (last 100)
 export let liveRequests: LiveRequest[] = [];
 
+// Tool call statistics
+export let toolStats: Record<string, number> = {};
+export let totalToolCalls: number = 0;
+
 /**
  * Record request statistics
  */
@@ -106,6 +110,31 @@ export function getLiveRequestsData(): string {
 }
 
 /**
+ * Record tool call statistics
+ */
+export function recordToolCall(toolName: string, success: boolean): void {
+  totalToolCalls++;
+  
+  if (!toolStats[toolName]) {
+    toolStats[toolName] = 0;
+  }
+  
+  if (success) {
+    toolStats[toolName]++;
+  }
+}
+
+/**
+ * Get tool call statistics
+ */
+export function getToolStats(): { total: number; byTool: Record<string, number> } {
+  return {
+    total: totalToolCalls,
+    byTool: { ...toolStats },
+  };
+}
+
+/**
  * Get stats data as JSON string
  */
 export function getStatsData(): string {
@@ -125,6 +154,7 @@ export function getStatsData(): string {
       successfulRequests: stats.successfulRequests || 0,
       failedRequests: stats.failedRequests || 0,
       averageResponseTime: stats.averageResponseTime || 0,
+      toolCalls: getToolStats(),
     };
 
     return JSON.stringify(statsData);
@@ -134,6 +164,7 @@ export function getStatsData(): string {
       successfulRequests: 0,
       failedRequests: 0,
       averageResponseTime: 0,
+      toolCalls: { total: 0, byTool: {} },
     });
   }
 }
