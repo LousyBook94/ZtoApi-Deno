@@ -3,7 +3,7 @@
  * Tests for tool registry, validation, and execution
  */
 
-import { assertEquals, assertExists, assertRejects } from "@std/assert";
+import { assertEquals, assertExists, assertRejects, assertThrows } from "assert";
 import { 
   registerTool, 
   getTool, 
@@ -132,7 +132,7 @@ Deno.test("Tool Validation - Validate tools array", () => {
     },
   ];
 
-  assertRejects(
+  assertThrows(
     () => validateTools(invalidToolType),
     Error,
     "Unsupported tool type: invalid",
@@ -149,7 +149,7 @@ Deno.test("Tool Validation - Validate tools array", () => {
     },
   ];
 
-  assertRejects(
+  assertThrows(
     () => validateTools(nonexistentTool),
     Error,
     "Tool not found: nonexistent_tool",

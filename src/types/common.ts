@@ -64,25 +64,7 @@ export interface UploadedFile {
   url: string;
 }
 
-/**
- * Upstream SSE data structure
- */
-export interface UpstreamData {
-  type: string;
-  data: {
-    delta_content: string;
-    edit_content?: string;
-    edit_index?: number;
-    phase: string;
-    done: boolean;
-    usage?: Usage;
-    error?: UpstreamError;
-    inner?: {
-      error?: UpstreamError;
-    };
-  };
-  error?: UpstreamError;
-}
+
 
 export interface UpstreamError {
   detail: string;
