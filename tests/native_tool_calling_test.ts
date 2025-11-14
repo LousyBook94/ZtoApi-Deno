@@ -143,7 +143,7 @@ Deno.test("Tool Validation - Validate tools array", () => {
   ];
 
   assertThrows(
-    () => validateTools(nonexistentTool),
+    () => validateTools(nonexistentTool, undefined, false), // Use strict validation for this test
     Error,
     "Tool not found: nonexistent_tool",
   );
